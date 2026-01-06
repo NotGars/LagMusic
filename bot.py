@@ -12,9 +12,21 @@ from permissions import PermissionManager
 
 # Configurar logging para suprimir errores de CommandNotFound
 logging.basicConfig(level=logging.INFO)
+
+# Filtro personalizado para suprimir CommandNotFound
+class CommandNotFoundFilter(logging.Filter):
+    def filter(self, record):
+        return 'CommandNotFound' not in record.getMessage() and 'Command' not in record.getMessage() and 'is not found' not in record.getMessage()
+
+# Aplicar filtro a discord.py
 discord.utils.setup_logging(level=logging.INFO)
 logger = logging.getLogger('discord')
-logger.setLevel(logging.WARNING)  # Solo mostrar warnings y errores críticos
+logger.setLevel(logging.WARNING)
+logger.addFilter(CommandNotFoundFilter())
+
+# También aplicar al logger de comandos
+commands_logger = logging.getLogger('discord.ext.commands')
+commands_logger.addFilter(CommandNotFoundFilter())
 
 # Configuración de intents
 intents = discord.Intents.default()
