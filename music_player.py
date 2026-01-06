@@ -76,7 +76,7 @@ class MusicPlayer:
         """Crea un objeto Song desde los datos extraídos"""
         url = data.get('url') or data.get('webpage_url')
         title = data.get('title', 'Desconocido')
-        duration = data.get('duration', 0)
+        duration = int(data.get('duration', 0)) if data.get('duration') else 0
         thumbnail = data.get('thumbnail')
         
         return Song(url=url, title=title, duration=duration, requester=requester_id, thumbnail=thumbnail)
