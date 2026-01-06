@@ -36,6 +36,15 @@ async def on_ready():
     print('------')
 
 @bot.event
+async def on_command_error(ctx, error):
+    """Maneja errores de comandos silenciosamente"""
+    if isinstance(error, commands.CommandNotFound):
+        # Ignorar comandos no encontrados (probablemente de otros bots)
+        return
+    # Para otros errores, imprimirlos
+    print(f"Error en comando: {error}")
+
+@bot.event
 async def on_voice_state_update(member, before, after):
     """Detecta cuando alguien crea/entra a un canal de voz"""
     # Si el usuario se unió a un canal nuevo
