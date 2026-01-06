@@ -172,14 +172,22 @@ Asegúrate de que todos los archivos estén en GitHub (ya incluidos):
 
 ### 3. Crear nuevo servicio
 
+**IMPORTANTE: Usa Docker para tener FFmpeg instalado**
+
 1. En el dashboard de Render, haz clic en **"New +"**
-2. Selecciona **"Background Worker"**
-3. Conecta tu repositorio de GitHub: `discord-music-bot`
+2. Selecciona **"Web Service"** (o "Background Worker")
+3. Conecta tu repositorio de GitHub: `discord-music-bot` o `LagMusic`
 4. Configura el servicio:
    - **Name:** discord-music-bot
+   - **Environment:** Docker
+   - **Dockerfile Path:** `Dockerfile` (se detecta automáticamente)
+   - **Docker Command:** (dejar vacío, usa el CMD del Dockerfile)
+
+**Alternativa sin Docker (puede no funcionar con FFmpeg):**
    - **Environment:** Python 3
    - **Build Command:** `pip install -r requirements.txt`
    - **Start Command:** `python bot.py`
+   - ⚠️ Nota: FFmpeg puede no estar disponible en el plan gratuito sin Docker
 
 ### 4. Configurar variables de entorno
 
@@ -191,15 +199,6 @@ En la sección "Environment Variables", añade:
 | `SPOTIFY_CLIENT_ID` | Tu Spotify Client ID (opcional) |
 | `SPOTIFY_CLIENT_SECRET` | Tu Spotify Client Secret (opcional) |
 | `HELP_CHANNELS` | IDs de canales separados por comas (opcional) |
-
-### 5. Instalar FFmpeg
-
-Render necesita FFmpeg para reproducir audio. Añade esto en la configuración:
-
-En **Build Command**, usa:
-```bash
-apt-get update && apt-get install -y ffmpeg && pip install -r requirements.txt
-```
 
 ### 6. Desplegar
 
