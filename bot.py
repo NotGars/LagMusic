@@ -3,11 +3,18 @@ from discord import app_commands
 from discord.ext import commands
 import asyncio
 from typing import Optional
+import logging
 import config
 from web_server import start_server
 from music_player import MusicPlayer
 from queue_manager import QueueManager, Song
 from permissions import PermissionManager
+
+# Configurar logging para suprimir errores de CommandNotFound
+logging.basicConfig(level=logging.INFO)
+discord.utils.setup_logging(level=logging.INFO)
+logger = logging.getLogger('discord')
+logger.setLevel(logging.WARNING)  # Solo mostrar warnings y errores críticos
 
 # Configuración de intents
 intents = discord.Intents.default()
@@ -24,8 +31,14 @@ class MusicBot(commands.Bot):
         self.permission_manager = PermissionManager()
     
     async def setup_hook(self):
-        await self.tree.sync()
-        print("Comandos sincronizados")
+        """Sincroniza los comandos slash con Discord"""
+        try:
+            synced = await self.tree.sync()
+            print(f"✅ {len(synced)} comandos slash sincronizados globalmente")
+            for cmd in synced:
+                print(f"   - /{cmd.name}")
+        except Exception as e:
+            print(f"❌ Error sincronizando comandos: {e}")
 
 bot = MusicBot()
 
@@ -44,6 +57,31 @@ async def on_command_error(ctx, error):
     # Para otros errores, imprimirlos
     print(f"Error en comando: {error}")
 
+
+# Error handler para comandos slash (application commands)
+@bot.tree.error
+async def on_app_command_error(interaction: discord.Interaction, error: discord.app_commands.AppCommandError):
+    """Maneja errores de comandos slash silenciosamente"""
+    if isinstance(error, discord.app_commands.CommandNotFound):
+        # Ignorar comandos no encontrados
+        return
+    
+    # Para errores de permisos o checks, responder al usuario
+    if isinstance(error, discord.app_commands.CheckFailure):
+        if not interaction.response.is_done():
+            await interaction.response.send_message(
+                "❌ No tienes permisos para usar este comando.",
+                ephemeral=True
+            )
+        return
+    
+    # Para otros errores, registrarlos pero no mostrar al usuario
+    print(f"Error en comando slash /{interaction.command.name if interaction.command else 'unknown'}: {error}")
+    if not interaction.response.is_done():
+        await interaction.response.send_message(
+            "❌ Ocurrió un error al ejecutar el comando. Intenta de nuevo.",
+            ephemeral=True
+        )
 @bot.event
 async def on_voice_state_update(member, before, after):
     """Detecta cuando alguien crea/entra a un canal de voz"""
