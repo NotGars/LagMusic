@@ -6,3 +6,4 @@ spotipy>=2.23.0
 aiohttp>=3.9.1
 asyncio>=3.4.3
 wavelink>=2.6.0
+flask>=3.0.0

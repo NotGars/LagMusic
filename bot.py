@@ -4,6 +4,7 @@ from discord.ext import commands
 import asyncio
 from typing import Optional
 import config
+from web_server import start_server
 from music_player import MusicPlayer
 from queue_manager import QueueManager, Song
 from permissions import PermissionManager
@@ -819,4 +820,7 @@ async def on_voice_state_update(member, before, after):
 
 # Ejecutar el bot
 if __name__ == "__main__":
+    # Iniciar servidor web para Render
+    start_server()
+    
     bot.run(config.DISCORD_TOKEN)
