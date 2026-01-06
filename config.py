@@ -16,7 +16,7 @@ HELP_CHANNELS = [
     1222966360263626865
 ]
 
-# yt-dlp options
+# yt-dlp options - Enhanced for YouTube bot detection bypass
 YTDL_OPTIONS = {
     'format': 'bestaudio/best',
     'extractaudio': True,
@@ -29,23 +29,24 @@ YTDL_OPTIONS = {
     'logtostderr': False,
     'quiet': True,
     'no_warnings': True,
-    'default_search': 'auto',
+    'default_search': 'ytsearch',
     'source_address': '0.0.0.0',
     'extract_flat': 'in_playlist',
     'age_limit': None,
     'geo_bypass': True,
+    'prefer_insecure': True,
     'extractor_args': {
         'youtube': {
+            'player_client': ['android_music', 'android', 'mweb', 'web'],
             'skip': ['hls', 'dash', 'translated_subs'],
-            'player_skip': ['js', 'configs', 'webpage'],
-            'player_client': ['android', 'web'],
-            'max_comments': [0]
+            'player_skip': ['configs', 'webpage'],
         }
     },
     'http_headers': {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'User-Agent': 'com.google.android.youtube/17.36.4 (Linux; U; Android 12; GB) gzip',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'Accept-Language': 'en-us,en;q=0.5',
+        'Accept-Encoding': 'gzip, deflate',
         'Sec-Fetch-Mode': 'navigate'
     }
 }
