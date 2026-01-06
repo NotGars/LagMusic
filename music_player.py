@@ -108,6 +108,9 @@ class MusicPlayer:
     
     def format_duration(self, seconds: int) -> str:
         """Formatea la duración en formato legible"""
+        # Convertir a int para evitar errores con floats
+        seconds = int(seconds)
+        
         if seconds == 0:
             return "En vivo"
         
