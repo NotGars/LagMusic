@@ -1,0 +1,56 @@
+╔══════════════════════════════════════════════════════════════╗
+║          RENDER DEPLOYMENT - QUICK REFERENCE                 ║
+╚══════════════════════════════════════════════════════════════╝
+
+📦 REPOSITORY: https://github.com/NotGars/LagMusic.git
+
+🔧 RENDER CONFIGURATION:
+   Service Type: Web Service
+   Environment: Python 3
+   
+   Build Command:
+   pip install -r requirements.txt
+   
+   Start Command:
+   python bot.py
+
+🔐 REQUIRED ENVIRONMENT VARIABLES:
+   DISCORD_TOKEN = your_discord_bot_token_here
+
+⚙️ OPTIONAL ENVIRONMENT VARIABLES:
+   SPOTIFY_CLIENT_ID = your_spotify_client_id
+   SPOTIFY_CLIENT_SECRET = your_spotify_client_secret
+   HELP_CHANNELS = channel_id_1,channel_id_2
+
+✅ DEPLOYMENT STEPS:
+   1. Go to render.com
+   2. New + → Web Service
+   3. Connect GitHub repo: NotGars/LagMusic
+   4. Set Build Command and Start Command (above)
+   5. Add Environment Variables
+   6. Click "Create Web Service"
+   7. Wait 2-5 minutes
+   8. Check Logs tab for "Bot conectado como..."
+
+🎵 FEATURES:
+   ✓ YouTube, Spotify, Apple Music support
+   ✓ Queue management
+   ✓ Loop mode
+   ✓ Vote skip system
+   ✓ Permission management
+   ✓ Karaoke mode
+
+📝 COMMANDS:
+   /play <song> - Play a song
+   /pause - Pause playback
+   /resume - Resume playback
+   /skip - Skip current song
+   /queue - Show queue
+   /help - Show all commands
+
+🐳 FOR BETTER AUDIO (Docker):
+   Environment: Docker
+   Build Command: (leave empty)
+   Start Command: (leave empty)
+
+═══════════════════════════════════════════════════════════════
