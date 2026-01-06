@@ -820,7 +820,11 @@ async def on_voice_state_update(member, before, after):
 
 # Ejecutar el bot
 if __name__ == "__main__":
-    # Iniciar servidor web para Render
-    start_server()
+    # Iniciar servidor web para Render en un thread separado
+    import threading
+    web_thread = threading.Thread(target=start_server, daemon=True)
+    web_thread.start()
+    print("✅ Servidor web iniciado en thread separado")
     
+    # Iniciar bot de Discord
     bot.run(config.DISCORD_TOKEN)
