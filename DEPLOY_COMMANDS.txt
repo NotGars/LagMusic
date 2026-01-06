@@ -1,0 +1,53 @@
+═══════════════════════════════════════════════════════════════
+  DISCORD MUSIC BOT - RENDER DEPLOYMENT COMMANDS
+═══════════════════════════════════════════════════════════════
+
+📦 REPOSITORY:
+https://github.com/NotGars/LagMusic.git
+
+🔧 BUILD COMMAND (Copy this exactly):
+pip install -r requirements.txt
+
+▶️ START COMMAND (Copy this exactly):
+python bot.py
+
+🔐 REQUIRED ENVIRONMENT VARIABLES:
+DISCORD_TOKEN = your_discord_bot_token_here
+
+🔐 OPTIONAL ENVIRONMENT VARIABLES:
+SPOTIFY_CLIENT_ID = your_spotify_client_id
+SPOTIFY_CLIENT_SECRET = your_spotify_client_secret
+
+⚙️ SERVICE TYPE:
+Web Service (FREE)
+
+🌍 REGION:
+Oregon (US West) or closest to you
+
+🐍 RUNTIME:
+Python 3
+
+═══════════════════════════════════════════════════════════════
+  DEPLOYMENT STEPS
+═══════════════════════════════════════════════════════════════
+
+1. Go to: https://dashboard.render.com/
+2. Click: "New +" → "Web Service"
+3. Connect repository: https://github.com/NotGars/LagMusic.git
+4. Fill in:
+   - Build Command: pip install -r requirements.txt
+   - Start Command: python bot.py
+5. Add environment variable: DISCORD_TOKEN
+6. Click: "Create Web Service"
+7. Wait 5-10 minutes for deployment
+8. Done! Bot will be online 🎉
+
+═══════════════════════════════════════════════════════════════
+  VERIFICATION
+═══════════════════════════════════════════════════════════════
+
+✅ Check logs for: "Bot conectado como [YourBotName]"
+✅ Visit: https://your-app-name.onrender.com/
+✅ Test in Discord: /play [song name]
+
+═══════════════════════════════════════════════════════════════
