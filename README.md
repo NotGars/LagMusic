@@ -152,6 +152,82 @@ Para usar playlists de Spotify:
 3. Copia el Client ID y Client Secret
 4. Añádelos a tu archivo `.env`
 
+
+## Despliegue en Render 🚀
+
+Render ofrece hosting gratuito para bots de Discord. Sigue estos pasos:
+
+### 1. Preparar el repositorio
+
+Asegúrate de que todos los archivos estén en GitHub (ya incluidos):
+- `render.yaml` - Configuración de Render
+- `requirements.txt` - Dependencias de Python
+- `runtime.txt` - Versión de Python
+- `Procfile` - Comando de inicio
+
+### 2. Crear cuenta en Render
+
+1. Ve a [render.com](https://render.com)
+2. Regístrate con tu cuenta de GitHub
+
+### 3. Crear nuevo servicio
+
+1. En el dashboard de Render, haz clic en **"New +"**
+2. Selecciona **"Background Worker"**
+3. Conecta tu repositorio de GitHub: `discord-music-bot`
+4. Configura el servicio:
+   - **Name:** discord-music-bot
+   - **Environment:** Python 3
+   - **Build Command:** `pip install -r requirements.txt`
+   - **Start Command:** `python bot.py`
+
+### 4. Configurar variables de entorno
+
+En la sección "Environment Variables", añade:
+
+| Key | Value |
+|-----|-------|
+| `DISCORD_TOKEN` | Tu token de Discord |
+| `SPOTIFY_CLIENT_ID` | Tu Spotify Client ID (opcional) |
+| `SPOTIFY_CLIENT_SECRET` | Tu Spotify Client Secret (opcional) |
+| `HELP_CHANNELS` | IDs de canales separados por comas (opcional) |
+
+### 5. Instalar FFmpeg
+
+Render necesita FFmpeg para reproducir audio. Añade esto en la configuración:
+
+En **Build Command**, usa:
+```bash
+apt-get update && apt-get install -y ffmpeg && pip install -r requirements.txt
+```
+
+### 6. Desplegar
+
+1. Haz clic en **"Create Background Worker"**
+2. Render automáticamente:
+   - Clonará tu repositorio
+   - Instalará dependencias
+   - Iniciará el bot
+
+### 7. Verificar el despliegue
+
+- Ve a la pestaña **"Logs"** para ver el estado del bot
+- Deberías ver el mensaje: "Bot conectado como [nombre del bot]"
+- El bot estará en línea 24/7 en tu servidor de Discord
+
+### Actualizar el bot
+
+Cuando hagas cambios en el código:
+1. Haz push a GitHub: `git push origin main`
+2. Render automáticamente detectará los cambios y redesplegar
+
+### Plan gratuito de Render
+
+- ✅ 750 horas/mes gratis (suficiente para 24/7)
+- ✅ Despliegues automáticos desde GitHub
+- ✅ Logs en tiempo real
+- ⚠️ El servicio puede dormir después de 15 minutos de inactividad (no aplica a workers)
+
 ## Solución de problemas
 
 ### El bot no reproduce audio
