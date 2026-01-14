@@ -1,30 +1,58 @@
-import { EmbedBuilder } from 'discord.js';
-import { addMusicHistory } from '../../utils/musicHistory.js';
+import supabase from '../config/supabase.js';
 
-export default {
-  name: 'playerStart',
-  async execute(queue, track) {
-    const embed = new EmbedBuilder()
-      .setColor('#9b59b6')
-      .setTitle('🎵 Reproduciendo ahora')
-      .setDescription(`**${track.title}**\n${track.author}`)
-      .addFields(
-        { name: '⏱️ Duración', value: track.duration, inline: true },
-        { name: '👤 Solicitado por', value: `<@${track.requestedBy.id}>`, inline: true }
-      )
-      .setThumbnail(track.thumbnail)
-      .setTimestamp();
+export async function getTempChannelOwner(channelId) {
+  const { data } = await supabase
+    .from('temp_voice_channels')
+    .select('owner_id')
+    .eq('channel_id', channelId)
+    .single();
 
-    await queue.metadata.channel.send({ embeds: [embed] });
+  return data?.owner_id || null;
+}
 
-    await addMusicHistory(
-      track.requestedBy.id,
-      queue.guild.id,
-      track.title,
-      track.url,
-      track.author,
-      track.source,
-      track.durationMS ? Math.floor(track.durationMS / 1000) : 0
-    );
-  },
-};
+export async function addChannelPermission(channelId, userId, grantedBy) {
+  await supabase.from('temp_voice_permissions').upsert({
+    channel_id: channelId,
+    user_id: userId,
+    granted_by: grantedBy,
+  });
+}
+
+export async function hasChannelPermission(channelId, userId) {
+  const owner = await getTempChannelOwner(channelId);
+  if (owner === userId) return true;
+
+  const { data } = await supabase
+    .from('temp_voice_permissions')
+    .select('user_id')
+    .eq('channel_id', channelId)
+    .eq('user_id', userId)
+    .single();
+
+  return !!data;
+}
+
+export async function handleTempVoiceChannel(oldState, newState, client) {
+  if (oldState.channelId && !newState.channelId) {
+    const { data: tempChannel } = await supabase
+      .from('temp_voice_channels')
+      .select('*')
+      .eq('channel_id', oldState.channelId)
+      .single();
+
+    if (tempChannel) {
+      const channel = await client.channels.fetch(oldState.channelId).catch(() => null);
+      if (channel && channel.members.size === 0) {
+        await channel.delete().catch(console.error);
+        await supabase
+          .from('temp_voice_channels')
+          .delete()
+          .eq('channel_id', oldState.channelId);
+        await supabase
+          .from('temp_voice_permissions')
+          .delete()
+          .eq('channel_id', oldState.channelId);
+      }
+    }
+  }
+}
