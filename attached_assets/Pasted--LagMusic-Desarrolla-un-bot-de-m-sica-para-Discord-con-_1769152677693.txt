@@ -1,0 +1,163 @@
+**LagMusic**
+
+Desarrolla un bot de música para Discord con estas especificaciones detalladas:
+
+🎵 Comandos de reproducción de música
+
+/play (nombre de la canción)
+
+Reproduce la canción indicada.
+
+Si ya hay canciones en cola, se acumula y se reproduce en orden.
+
+/play playlist (nombre de la app) (nombre o link de la playlist)
+
+Carga y reproduce la playlist completa desde plataformas como YouTube, Spotify, YT Music, etc.
+
+/skip
+
+Salta la canción actual y reproduce la siguiente de la cola o playlist.
+
+/pause
+
+Pausa la reproducción actual.
+
+/resume
+
+Reanuda la reproducción pausada.
+
+/bucle
+
+Activa repetición (loop) de la canción actual.
+
+/stop bucle
+
+Desactiva el bucle indefinido.
+
+/any
+
+Reproduce cualquier canción aleatoria de la playlist activa.
+
+/random
+
+Activa el modo aleatorio (shuffle) para la playlist.
+
+/vote skip
+
+Inicia una votación para saltar la canción.
+
+Solo si más de la mitad de los miembros en el canal de voz usan este comando, se salta.
+
+Si el miembro creó el canal de voz, puede usar directamente /skip.
+
+/add permiss (usuario)
+
+El creador del canal puede dar permisos a otro miembro para usar /skip, /stop, /pause, /resume.
+
+/clear
+
+El creador del canal puede borrar todas las canciones que siguen en cola.
+
+/karaoke (canción)
+
+Busca y reproduce la versión karaoke de la canción indicada.
+
+/autoplay
+
+Según el historial de canciones escuchadas por el usuario, automáticamente reproducir música relacionada.
+
+💬 Sistema de ayuda
+
+/help
+
+Envía un embed morado con todos los comandos y descripciones.
+
+🎧 Soporte de plataformas
+
+El bot debe poder reproducir audio desde la mayoría de sitios populares como:
+
+Spotify
+
+YouTube
+
+YouTube Music
+
+Apple Music
+
+Otros servicios compatibles con APIs públicas o scraping de audio.
+
+🔊 Sistema de voz temporal (Temp Voice)
+
+Implementa un sistema de canales de voz temporales con funciones avanzadas similares a TempVoice:
+
+Creación automática de canales al entrar.
+
+Eliminación cuando quedan vacíos.
+
+Configuración de permisos personalizados como la imagen adjuntada.
+
+Posibilidad de renombrar/mover canales automáticamente.
+
+📈 Sistema de niveles y Rankcards
+
+Calcula niveles según:
+
+Tiempo en canales de voz.
+
+Tiempo escuchando música con el bot.
+
+Genera tarjetas de nivel personalizadas (Rankcards) con 3 estilos:
+
+Lo-fi Night (predeterminada gratis)
+
+Fondo oscuro con grano.
+
+Colores morado, azul, café.
+
+Tipografía suave y relajante.
+
+Lo-fi Minimal (desbloquea en nivel 25)
+
+Fondo beige o gris claro.
+
+Diseño minimalista y elegante.
+
+Lo-fi Anime Desk (desbloquea en nivel 50)
+
+Fondo tipo escritorio (planta, taza, ventana).
+
+Colores pastel y estilo tranquilo.
+
+Cada tarjeta debe mostrar:
+
+Nombre de usuario.
+
+Nivel actual.
+
+Barra de experiencia.
+
+Estilo visual según la selección/nivel.
+
+🧠 Requisitos extras
+
+Manejo de cola de canciones eficiente.
+
+Reproducción continua sin interrupciones cuando hay música en cola.
+
+Gestión de permisos según roles y propietario del canal de voz.
+
+Mensajes embed para feedback visual en Discord.
+
+
+Quiero que generes el codigo y luego me ayudes a subirlo a Github, El bot lo voy a desplegar en Render, No aqui.
+
+
+Mas funciones:
+
+Comandos del sistema de Niveles:
+
+/level - ver nivel del usuario
+
+/leaderboard - ver la Tabla de Clasificaciones de top 10 usuarios con mas niveles
+
+/profile - para ver la información del perfil del usuario como el Bot Jockie Music
