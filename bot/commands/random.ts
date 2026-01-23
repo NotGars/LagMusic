@@ -1,8 +1,7 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder, GuildMember } from 'discord.js';
-import { Command } from '../types';
+import { Command, ExtendedClient } from '../types';
 import { config } from '../config';
 import { shuffleQueue, hasPermission } from '../systems/musicPlayer';
-import { client } from '../index';
 
 export const randomCommand: Command = {
   data: new SlashCommandBuilder()
@@ -25,6 +24,7 @@ export const randomCommand: Command = {
       return;
     }
     
+    const client = interaction.client as ExtendedClient;
     const queue = client.musicQueues.get(interaction.guildId!);
     
     if (!queue || queue.tracks.length === 0) {

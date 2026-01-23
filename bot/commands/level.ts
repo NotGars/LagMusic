@@ -1,8 +1,7 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder, GuildMember } from 'discord.js';
-import { Command, UserLevel } from '../types';
+import { Command, UserLevel, ExtendedClient } from '../types';
 import { config, xpForLevel } from '../config';
 import { calculateProgress, formatTime } from '../systems/rankcardGenerator';
-import { client } from '../index';
 
 export const levelCommand: Command = {
   data: new SlashCommandBuilder()
@@ -15,6 +14,7 @@ export const levelCommand: Command = {
     ),
   
   async execute(interaction: ChatInputCommandInteraction) {
+    const client = interaction.client as ExtendedClient;
     const targetUser = interaction.options.getUser('usuario') || interaction.user;
     const member = interaction.guild?.members.cache.get(targetUser.id);
     

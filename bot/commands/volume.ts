@@ -1,8 +1,7 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder, GuildMember } from 'discord.js';
-import { Command } from '../types';
+import { Command, ExtendedClient } from '../types';
 import { config } from '../config';
 import { hasPermission, getOrCreateQueue } from '../systems/musicPlayer';
-import { client } from '../index';
 
 export const volumeCommand: Command = {
   data: new SlashCommandBuilder()
@@ -32,6 +31,7 @@ export const volumeCommand: Command = {
       return;
     }
     
+    const client = interaction.client as ExtendedClient;
     const queue = client.musicQueues.get(interaction.guildId!);
     
     if (!queue) {

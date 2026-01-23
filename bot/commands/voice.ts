@@ -6,9 +6,8 @@ import {
   PermissionFlagsBits,
   VoiceChannel
 } from 'discord.js';
-import { Command } from '../types';
+import { Command, ExtendedClient } from '../types';
 import { config } from '../config';
-import { client } from '../index';
 
 export const voiceCommand: Command = {
   data: new SlashCommandBuilder()
@@ -117,6 +116,7 @@ export const voiceCommand: Command = {
       return;
     }
     
+    const client = interaction.client as ExtendedClient;
     const tempData = client.tempChannels.get(voiceChannel.id);
     
     if (!tempData) {

@@ -1,0 +1,85 @@
+# LagMusic Discord Bot
+
+## Overview
+LagMusic is a comprehensive Discord music bot with the following features:
+- Music playback from YouTube, Spotify, YouTube Music, SoundCloud
+- Temporary voice channel system (TempVoice)
+- User leveling system with unlockable rankcard styles
+- 24 slash commands for complete control
+
+## Project Structure
+```
+bot/
+├── index.ts              # Main entry point
+├── config.ts             # Configuration and constants
+├── types.ts              # TypeScript interfaces
+├── package.json          # Bot dependencies
+├── .env.example          # Environment variables template
+├── commands/             # 24 slash commands
+│   ├── play.ts           # Play music
+│   ├── skip.ts           # Skip track
+│   ├── pause.ts          # Pause playback
+│   ├── resume.ts         # Resume playback
+│   ├── bucle.ts          # Enable loop
+│   ├── stopBucle.ts      # Disable loop
+│   ├── any.ts            # Random track from queue
+│   ├── random.ts         # Shuffle queue
+│   ├── voteskip.ts       # Vote to skip
+│   ├── addPermiss.ts     # Grant music permissions
+│   ├── clear.ts          # Clear queue
+│   ├── karaoke.ts        # Search karaoke version
+│   ├── autoplay.ts       # Toggle autoplay
+│   ├── queue.ts          # Show queue
+│   ├── nowplaying.ts     # Current track
+│   ├── stop.ts           # Stop and disconnect
+│   ├── volume.ts         # Adjust volume
+│   ├── help.ts           # Help command
+│   ├── level.ts          # User level
+│   ├── leaderboard.ts    # Top 10 users
+│   ├── profile.ts        # User profile
+│   ├── rankcard.ts       # Change rankcard style
+│   ├── setupTempVoice.ts # Setup TempVoice (Admin)
+│   └── voice.ts          # Voice channel management
+├── events/               # Event handlers
+│   ├── ready.ts          # Bot ready event
+│   ├── interactionCreate.ts # Command handler
+│   └── voiceStateUpdate.ts  # Voice events + XP tracking
+└── systems/              # Core systems
+    ├── musicPlayer.ts    # Music playback logic
+    └── rankcardGenerator.ts # Rankcard generation
+```
+
+## Key Features
+
+### Music System
+- Multi-platform support (YouTube, Spotify, YouTube Music, SoundCloud)
+- Queue management with loop, shuffle, autoplay
+- Permission system for controlling music
+- Vote skip functionality
+
+### TempVoice System
+- Users join a creator channel to get their own temporary voice channel
+- Full permissions: rename, limit, lock, trust, kick, block
+- Channels auto-delete when empty
+- Channel claiming when owner leaves
+
+### Level System
+- 2 XP per minute in voice channels
+- 3 XP per minute when listening to music with bot
+- 3 unlockable rankcard styles:
+  1. Lo-fi Night (Level 0)
+  2. Lo-fi Minimal (Level 25)
+  3. Lo-fi Anime Desk (Level 50)
+
+## Environment Variables Required
+- `DISCORD_TOKEN` - Bot token from Discord Developer Portal
+- `CLIENT_ID` - Application ID from Discord Developer Portal
+
+## Deployment Target
+This bot is designed to be deployed on Render (not Replit), using the bot/ directory as the root.
+
+## Recent Changes
+- Initial creation: Full bot structure with all features
+- 24 slash commands implemented
+- TempVoice and Level systems complete
+- README with deployment instructions

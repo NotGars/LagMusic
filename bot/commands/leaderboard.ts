@@ -1,8 +1,7 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder } from 'discord.js';
-import { Command } from '../types';
+import { Command, ExtendedClient } from '../types';
 import { config } from '../config';
 import { formatTime } from '../systems/rankcardGenerator';
-import { client } from '../index';
 
 export const leaderboardCommand: Command = {
   data: new SlashCommandBuilder()
@@ -10,6 +9,7 @@ export const leaderboardCommand: Command = {
     .setDescription('Muestra el top 10 de usuarios con más nivel'),
   
   async execute(interaction: ChatInputCommandInteraction) {
+    const client = interaction.client as ExtendedClient;
     const guildId = interaction.guildId!;
     
     const guildUsers = Array.from(client.userLevels.entries())

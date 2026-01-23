@@ -1,8 +1,7 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder, AttachmentBuilder } from 'discord.js';
-import { Command, UserLevel, RANKCARD_STYLES } from '../types';
+import { Command, UserLevel, RANKCARD_STYLES, ExtendedClient } from '../types';
 import { config } from '../config';
 import { generateRankcardSVG, calculateProgress, formatTime, getRankcardStyle } from '../systems/rankcardGenerator';
-import { client } from '../index';
 
 export const profileCommand: Command = {
   data: new SlashCommandBuilder()
@@ -17,6 +16,7 @@ export const profileCommand: Command = {
   async execute(interaction: ChatInputCommandInteraction) {
     await interaction.deferReply();
     
+    const client = interaction.client as ExtendedClient;
     const targetUser = interaction.options.getUser('usuario') || interaction.user;
     
     const userKey = `${interaction.guildId}-${targetUser.id}`;

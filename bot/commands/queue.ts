@@ -1,7 +1,6 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder } from 'discord.js';
-import { Command } from '../types';
+import { Command, ExtendedClient } from '../types';
 import { config } from '../config';
-import { client } from '../index';
 
 export const queueCommand: Command = {
   data: new SlashCommandBuilder()
@@ -15,6 +14,7 @@ export const queueCommand: Command = {
     ),
   
   async execute(interaction: ChatInputCommandInteraction) {
+    const client = interaction.client as ExtendedClient;
     const queue = client.musicQueues.get(interaction.guildId!);
     
     if (!queue || (queue.tracks.length === 0 && !queue.currentTrack)) {

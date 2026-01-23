@@ -1,8 +1,7 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder } from 'discord.js';
-import { Command, RANKCARD_STYLES } from '../types';
+import { Command, RANKCARD_STYLES, ExtendedClient } from '../types';
 import { config } from '../config';
 import { getAvailableRankcards, getRankcardStyle } from '../systems/rankcardGenerator';
-import { client } from '../index';
 
 export const rankcardCommand: Command = {
   data: new SlashCommandBuilder()
@@ -20,6 +19,7 @@ export const rankcardCommand: Command = {
     ),
   
   async execute(interaction: ChatInputCommandInteraction) {
+    const client = interaction.client as ExtendedClient;
     const userKey = `${interaction.guildId}-${interaction.user.id}`;
     let userLevel = client.userLevels.get(userKey);
     

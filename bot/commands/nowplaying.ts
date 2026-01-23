@@ -1,7 +1,6 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder } from 'discord.js';
-import { Command } from '../types';
+import { Command, ExtendedClient } from '../types';
 import { config } from '../config';
-import { client } from '../index';
 
 export const nowplayingCommand: Command = {
   data: new SlashCommandBuilder()
@@ -9,6 +8,7 @@ export const nowplayingCommand: Command = {
     .setDescription('Muestra la canción que está sonando actualmente'),
   
   async execute(interaction: ChatInputCommandInteraction) {
+    const client = interaction.client as ExtendedClient;
     const queue = client.musicQueues.get(interaction.guildId!);
     
     if (!queue || !queue.currentTrack) {

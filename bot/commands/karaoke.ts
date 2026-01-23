@@ -1,8 +1,7 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder, GuildMember } from 'discord.js';
-import { Command } from '../types';
+import { Command, ExtendedClient } from '../types';
 import { config } from '../config';
 import { connectToVoice, searchAndAddTrack, playTrack, getOrCreateQueue } from '../systems/musicPlayer';
-import { client } from '../index';
 
 export const karaokeCommand: Command = {
   data: new SlashCommandBuilder()
@@ -34,6 +33,7 @@ export const karaokeCommand: Command = {
     
     const songName = interaction.options.getString('cancion', true);
     const karaokeQuery = `${songName} karaoke instrumental`;
+    const client = interaction.client as ExtendedClient;
     
     try {
       const queue = await connectToVoice(client, voiceChannel as any, interaction.channelId);

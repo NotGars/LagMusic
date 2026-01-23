@@ -1,8 +1,7 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder, GuildMember } from 'discord.js';
-import { Command } from '../types';
+import { Command, ExtendedClient } from '../types';
 import { config } from '../config';
 import { isChannelOwner } from '../systems/musicPlayer';
-import { client } from '../index';
 
 export const addPermissCommand: Command = {
   data: new SlashCommandBuilder()
@@ -29,6 +28,8 @@ export const addPermissCommand: Command = {
       });
       return;
     }
+    
+    const client = interaction.client as ExtendedClient;
     
     if (!isChannelOwner(client, voiceChannel.id, member.id)) {
       await interaction.reply({

@@ -1,8 +1,7 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder, GuildMember } from 'discord.js';
-import { Command } from '../types';
+import { Command, ExtendedClient } from '../types';
 import { config } from '../config';
 import { hasPermission, getOrCreateQueue } from '../systems/musicPlayer';
-import { client } from '../index';
 
 export const autoplayCommand: Command = {
   data: new SlashCommandBuilder()
@@ -25,6 +24,7 @@ export const autoplayCommand: Command = {
       return;
     }
     
+    const client = interaction.client as ExtendedClient;
     const queue = getOrCreateQueue(client, interaction.guildId!);
     
     if (!hasPermission(client, interaction.guildId!, voiceChannel.id, member.id)) {
