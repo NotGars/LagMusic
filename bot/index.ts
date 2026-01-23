@@ -1,3 +1,4 @@
+import sodium from 'libsodium-wrappers';
 import { 
   Client, 
   GatewayIntentBits, 
@@ -122,6 +123,10 @@ async function registerCommands() {
 }
 
 async function main() {
+  // Initialize sodium for voice encryption
+  await sodium.ready;
+  console.log('🔐 Sodium inicializado para encriptación de voz');
+  
   if (!config.token) {
     console.error('❌ DISCORD_TOKEN no está configurado!');
     console.log('Por favor, configura la variable de entorno DISCORD_TOKEN');
