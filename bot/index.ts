@@ -94,18 +94,28 @@ client.on(Events.VoiceStateUpdate, (oldState, newState) => handleVoiceStateUpdat
 
 async function registerCommands() {
   const rest = new REST({ version: '10' }).setToken(config.token);
+  const guildId = process.env.GUILD_ID;
   
   try {
     console.log('🔄 Registrando comandos slash...');
     
     const commandData = commands.map(cmd => cmd.data.toJSON());
     
-    await rest.put(
-      Routes.applicationCommands(config.clientId),
-      { body: commandData },
-    );
-    
-    console.log('✅ Comandos registrados exitosamente!');
+    if (guildId) {
+      // Guild commands - instant update for testing
+      await rest.put(
+        Routes.applicationGuildCommands(config.clientId, guildId),
+        { body: commandData },
+      );
+      console.log(`✅ Comandos registrados en servidor ${guildId}!`);
+    } else {
+      // Global commands - takes up to 1 hour
+      await rest.put(
+        Routes.applicationCommands(config.clientId),
+        { body: commandData },
+      );
+      console.log('✅ Comandos registrados globalmente!');
+    }
   } catch (error) {
     console.error('❌ Error registrando comandos:', error);
   }
