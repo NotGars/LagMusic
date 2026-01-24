@@ -12,6 +12,15 @@ import { VoiceChannel, TextChannel, EmbedBuilder, GuildMember } from 'discord.js
 import { ExtendedClient, MusicQueue, Track } from '../types';
 import { config } from '../config';
 
+const ytCookies = process.env.YOUTUBE_COOKIES;
+if (ytCookies) {
+  play.setToken({
+    youtube: {
+      cookie: ytCookies
+    }
+  });
+}
+
 export function getOrCreateQueue(client: ExtendedClient, guildId: string): MusicQueue {
   let queue = client.musicQueues.get(guildId);
   if (!queue) {
