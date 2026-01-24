@@ -309,9 +309,31 @@ export async function playTrack(client: ExtendedClient, queue: MusicQueue): Prom
     }
     
     return true;
-  } catch (error) {
-    console.error('Error reproduciendo canción:', error);
-    return playTrack(client, queue);
+  } catch (error: any) {
+    console.error('Error reproduciendo canción:', error.message || error);
+    
+    const textChannel = await client.channels.fetch(queue.textChannelId) as TextChannel;
+    if (textChannel) {
+      if (error.message?.includes('429')) {
+        await textChannel.send({
+          embeds: [new EmbedBuilder()
+            .setColor(config.colors.error)
+            .setDescription('❌ YouTube está bloqueando las solicitudes. Prueba con links de SoundCloud.')]
+        });
+      } else {
+        await textChannel.send({
+          embeds: [new EmbedBuilder()
+            .setColor(config.colors.error)
+            .setDescription('❌ Error al reproducir. Saltando a la siguiente canción...')]
+        });
+      }
+    }
+    
+    if (queue.tracks.length > 0) {
+      return playTrack(client, queue);
+    }
+    queue.isPlaying = false;
+    return false;
   }
 }
 
