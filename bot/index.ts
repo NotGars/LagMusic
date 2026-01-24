@@ -7,6 +7,7 @@ import {
   Events,
   ActivityType
 } from 'discord.js';
+import { createServer } from 'http';
 import { config } from './config';
 import { Command, ExtendedClient, MusicQueue, TempChannelData, UserLevel } from './types';
 
@@ -135,6 +136,26 @@ async function main() {
     console.log('Por favor, configura la variable de entorno CLIENT_ID');
     process.exit(1);
   }
+  
+  // Health check server for Railway
+  const port = process.env.PORT || 3000;
+  const server = createServer((req, res) => {
+    if (req.url === '/health' || req.url === '/') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ 
+        status: 'online', 
+        bot: client.user?.tag || 'starting',
+        uptime: process.uptime()
+      }));
+    } else {
+      res.writeHead(404);
+      res.end();
+    }
+  });
+  
+  server.listen(port, () => {
+    console.log(`🌐 Health server running on port ${port}`);
+  });
   
   await registerCommands();
   await client.login(config.token);
