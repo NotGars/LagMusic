@@ -128,6 +128,35 @@ export async function searchAndAddTrack(query: string, requestedBy: string): Pro
       }
     }
     
+    if (query.includes('soundcloud.com')) {
+      const scInfo = await play.soundcloud(query);
+      return {
+        title: scInfo.name || 'Unknown',
+        url: scInfo.url,
+        duration: formatDuration(scInfo.durationInSec),
+        thumbnail: scInfo.thumbnail || '',
+        requestedBy,
+        source: 'soundcloud',
+      };
+    }
+    
+    try {
+      searchResult = await play.search(query, { limit: 1, source: { soundcloud: 'tracks' } });
+      if (searchResult.length > 0) {
+        const track = searchResult[0];
+        return {
+          title: track.name || 'Unknown',
+          url: track.url,
+          duration: formatDuration(track.durationInSec),
+          thumbnail: track.thumbnail || '',
+          requestedBy,
+          source: 'soundcloud',
+        };
+      }
+    } catch {
+      console.log('SoundCloud search failed, trying YouTube...');
+    }
+    
     searchResult = await play.search(query, { limit: 1 });
     if (searchResult.length > 0) {
       const video = searchResult[0];
@@ -142,8 +171,12 @@ export async function searchAndAddTrack(query: string, requestedBy: string): Pro
     }
     
     return null;
-  } catch (error) {
-    console.error('Error buscando canción:', error);
+  } catch (error: any) {
+    if (error.message?.includes('429')) {
+      console.error('YouTube rate limited (429). Try using SoundCloud URLs.');
+    } else {
+      console.error('Error buscando canción:', error);
+    }
     return null;
   }
 }
