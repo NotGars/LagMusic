@@ -6,20 +6,13 @@ import {
   VoiceConnectionStatus,
   entersState,
   NoSubscriberBehavior,
+  StreamType,
 } from '@discordjs/voice';
-import play from 'play-dl';
+import ytdl from '@distube/ytdl-core';
+import yts from 'yt-search';
 import { VoiceChannel, TextChannel, EmbedBuilder, GuildMember } from 'discord.js';
 import { ExtendedClient, MusicQueue, Track } from '../types';
 import { config } from '../config';
-
-const ytCookies = process.env.YOUTUBE_COOKIES;
-if (ytCookies) {
-  play.setToken({
-    youtube: {
-      cookie: ytCookies
-    }
-  });
-}
 
 export function getOrCreateQueue(client: ExtendedClient, guildId: string): MusicQueue {
   let queue = client.musicQueues.get(guildId);
@@ -91,92 +84,74 @@ export async function connectToVoice(client: ExtendedClient, voiceChannel: Voice
   return queue;
 }
 
+function isYouTubeUrl(query: string): boolean {
+  return query.includes('youtube.com') || query.includes('youtu.be');
+}
+
+function extractVideoId(url: string): string | null {
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/,
+    /youtube\.com\/shorts\/([^&\n?#]+)/
+  ];
+  
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match) return match[1];
+  }
+  return null;
+}
+
 export async function searchAndAddTrack(query: string, requestedBy: string): Promise<Track | null> {
   try {
-    let searchResult;
-    
-    if (play.yt_validate(query) === 'video') {
-      const info = await play.video_info(query);
-      return {
-        title: info.video_details.title || 'Unknown',
-        url: info.video_details.url,
-        duration: formatDuration(info.video_details.durationInSec),
-        thumbnail: info.video_details.thumbnails[0]?.url || '',
-        requestedBy,
-        source: 'youtube',
-      };
-    }
-    
-    if (query.includes('spotify.com')) {
-      if (play.is_expired()) {
-        await play.refreshToken();
+    let videoUrl: string;
+    let videoInfo: { title: string; url: string; duration: { seconds: number }; thumbnail: string };
+
+    if (isYouTubeUrl(query)) {
+      const videoId = extractVideoId(query);
+      if (!videoId) {
+        console.error('Invalid YouTube URL');
+        return null;
       }
       
-      const spotifyData = await play.spotify(query);
-      if (spotifyData.type === 'track') {
-        const ytSearch = await play.search(`${spotifyData.name} ${spotifyData.artists?.[0]?.name || ''}`, { limit: 1 });
-        if (ytSearch.length > 0) {
-          return {
-            title: spotifyData.name,
-            url: ytSearch[0].url,
-            duration: formatDuration(spotifyData.durationInSec),
-            thumbnail: spotifyData.thumbnail?.url || '',
-            requestedBy,
-            source: 'spotify',
-          };
-        }
-      }
-    }
-    
-    if (query.includes('soundcloud.com')) {
-      const scInfo = await play.soundcloud(query);
-      return {
-        title: scInfo.name || 'Unknown',
-        url: scInfo.url,
-        duration: formatDuration(scInfo.durationInSec),
-        thumbnail: scInfo.thumbnail || '',
-        requestedBy,
-        source: 'soundcloud',
-      };
-    }
-    
-    try {
-      searchResult = await play.search(query, { limit: 1, source: { soundcloud: 'tracks' } });
-      if (searchResult.length > 0) {
-        const track = searchResult[0];
-        return {
-          title: track.name || 'Unknown',
-          url: track.url,
-          duration: formatDuration(track.durationInSec),
-          thumbnail: track.thumbnail || '',
-          requestedBy,
-          source: 'soundcloud',
+      try {
+        const info = await ytdl.getBasicInfo(query);
+        videoInfo = {
+          title: info.videoDetails.title,
+          url: info.videoDetails.video_url,
+          duration: { seconds: parseInt(info.videoDetails.lengthSeconds) },
+          thumbnail: info.videoDetails.thumbnails[0]?.url || '',
         };
+      } catch (error) {
+        console.error('Error getting video info:', error);
+        return null;
       }
-    } catch {
-      console.log('SoundCloud search failed, trying YouTube...');
-    }
-    
-    searchResult = await play.search(query, { limit: 1 });
-    if (searchResult.length > 0) {
-      const video = searchResult[0];
-      return {
-        title: video.title || 'Unknown',
+    } else {
+      const searchResult = await yts(query);
+      
+      if (!searchResult.videos || searchResult.videos.length === 0) {
+        console.log('No se encontraron resultados para:', query);
+        return null;
+      }
+      
+      const video = searchResult.videos[0];
+      videoInfo = {
+        title: video.title,
         url: video.url,
-        duration: formatDuration(video.durationInSec),
-        thumbnail: video.thumbnails[0]?.url || '',
-        requestedBy,
-        source: 'youtube',
+        duration: { seconds: video.seconds },
+        thumbnail: video.thumbnail || '',
       };
     }
-    
-    return null;
+
+    return {
+      title: videoInfo.title,
+      url: videoInfo.url,
+      duration: formatDuration(videoInfo.duration.seconds),
+      thumbnail: videoInfo.thumbnail,
+      requestedBy,
+      source: 'youtube',
+    };
   } catch (error: any) {
-    if (error.message?.includes('429')) {
-      console.error('YouTube rate limited (429). Try using SoundCloud URLs.');
-    } else {
-      console.error('Error buscando canción:', error);
-    }
+    console.error('Error buscando canción:', error.message || error);
     return null;
   }
 }
@@ -185,56 +160,41 @@ export async function searchPlaylist(query: string, source: string, requestedBy:
   const tracks: Track[] = [];
   
   try {
-    if (query.includes('spotify.com/playlist')) {
-      if (play.is_expired()) {
-        await play.refreshToken();
-      }
-      
-      const playlist = await play.spotify(query);
-      if (playlist.type === 'playlist' && playlist.fetched_tracks) {
-        for (const track of playlist.fetched_tracks.get(1) || []) {
-          const ytSearch = await play.search(`${track.name} ${track.artists?.[0]?.name || ''}`, { limit: 1 });
-          if (ytSearch.length > 0) {
+    if (query.includes('youtube.com/playlist')) {
+      const playlistId = query.match(/[?&]list=([^&]+)/)?.[1];
+      if (playlistId) {
+        const searchResult = await yts({ listId: playlistId });
+        
+        if (searchResult && searchResult.videos) {
+          for (const video of searchResult.videos.slice(0, 50)) {
             tracks.push({
-              title: track.name,
-              url: ytSearch[0].url,
-              duration: formatDuration(track.durationInSec),
-              thumbnail: track.thumbnail?.url || '',
+              title: video.title,
+              url: `https://www.youtube.com/watch?v=${video.videoId}`,
+              duration: formatDuration(video.seconds || 0),
+              thumbnail: video.thumbnail || '',
               requestedBy,
-              source: 'spotify',
+              source: 'youtube',
             });
           }
         }
       }
-    } else if (play.yt_validate(query) === 'playlist') {
-      const playlist = await play.playlist_info(query);
-      const videos = await playlist.all_videos();
-      
-      for (const video of videos) {
-        tracks.push({
-          title: video.title || 'Unknown',
-          url: video.url,
-          duration: formatDuration(video.durationInSec),
-          thumbnail: video.thumbnails[0]?.url || '',
-          requestedBy,
-          source: 'youtube',
-        });
-      }
     } else {
-      const searchResult = await play.search(`${source} ${query} playlist`, { limit: 1, source: { youtube: 'playlist' } });
-      if (searchResult.length > 0) {
-        const playlist = await play.playlist_info(searchResult[0].url);
-        const videos = await playlist.all_videos();
+      const searchResult = await yts(`${source} ${query} playlist`);
+      if (searchResult.playlists && searchResult.playlists.length > 0) {
+        const playlist = searchResult.playlists[0];
+        const playlistDetails = await yts({ listId: playlist.listId });
         
-        for (const video of videos) {
-          tracks.push({
-            title: video.title || 'Unknown',
-            url: video.url,
-            duration: formatDuration(video.durationInSec),
-            thumbnail: video.thumbnails[0]?.url || '',
-            requestedBy,
-            source: 'youtube',
-          });
+        if (playlistDetails && playlistDetails.videos) {
+          for (const video of playlistDetails.videos.slice(0, 50)) {
+            tracks.push({
+              title: video.title,
+              url: `https://www.youtube.com/watch?v=${video.videoId}`,
+              duration: formatDuration(video.seconds || 0),
+              thumbnail: video.thumbnail || '',
+              requestedBy,
+              source: 'youtube',
+            });
+          }
         }
       }
     }
@@ -254,15 +214,16 @@ export async function playTrack(client: ExtendedClient, queue: MusicQueue): Prom
     
     if (queue.autoplay && queue.history.length > 0) {
       const lastTrack = queue.history[queue.history.length - 1];
-      const relatedTracks = await play.search(lastTrack.title, { limit: 5 });
+      const searchResult = await yts(lastTrack.title);
       
-      if (relatedTracks.length > 1) {
-        const randomTrack = relatedTracks[Math.floor(Math.random() * (relatedTracks.length - 1)) + 1];
+      if (searchResult.videos && searchResult.videos.length > 1) {
+        const randomIndex = Math.floor(Math.random() * Math.min(5, searchResult.videos.length - 1)) + 1;
+        const randomVideo = searchResult.videos[randomIndex];
         const track: Track = {
-          title: randomTrack.title || 'Unknown',
-          url: randomTrack.url,
-          duration: formatDuration(randomTrack.durationInSec),
-          thumbnail: randomTrack.thumbnails[0]?.url || '',
+          title: randomVideo.title,
+          url: randomVideo.url,
+          duration: formatDuration(randomVideo.seconds),
+          thumbnail: randomVideo.thumbnail || '',
           requestedBy: 'Autoplay',
           source: 'youtube',
         };
@@ -282,9 +243,14 @@ export async function playTrack(client: ExtendedClient, queue: MusicQueue): Prom
   }
   
   try {
-    const stream = await play.stream(track.url);
-    const resource = createAudioResource(stream.stream, {
-      inputType: stream.type,
+    const stream = ytdl(track.url, {
+      filter: 'audioonly',
+      quality: 'highestaudio',
+      highWaterMark: 1 << 25,
+    });
+    
+    const resource = createAudioResource(stream, {
+      inputType: StreamType.Arbitrary,
     });
     
     queue.player.play(resource);
@@ -314,11 +280,11 @@ export async function playTrack(client: ExtendedClient, queue: MusicQueue): Prom
     
     const textChannel = await client.channels.fetch(queue.textChannelId) as TextChannel;
     if (textChannel) {
-      if (error.message?.includes('429')) {
+      if (error.message?.includes('429') || error.message?.includes('rate limit')) {
         await textChannel.send({
           embeds: [new EmbedBuilder()
             .setColor(config.colors.error)
-            .setDescription('❌ YouTube está bloqueando las solicitudes. Prueba con links de SoundCloud.')]
+            .setDescription('❌ YouTube está bloqueando las solicitudes. Intenta de nuevo en unos minutos.')]
         });
       } else {
         await textChannel.send({
