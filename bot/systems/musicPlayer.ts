@@ -293,6 +293,16 @@ export async function playTrack(client: ExtendedClient, queue: MusicQueue): Prom
   }
   
   try {
+    console.log('Intentando reproducir URL:', track.url);
+    
+    // Validate the URL first
+    const validated = await play.validate(track.url);
+    console.log('URL validada como:', validated);
+    
+    if (validated === false) {
+      throw new Error('Invalid URL');
+    }
+    
     const streamInfo = await play.stream(track.url);
     
     const resource = createAudioResource(streamInfo.stream, {
