@@ -15,6 +15,18 @@ import { ExtendedClient, MusicQueue, Track } from '../types';
 import { config } from '../config';
 
 let ytdlAgent: ReturnType<typeof ytdl.createAgent> | undefined;
+
+const defaultYtdlOptions = {
+  requestOptions: {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+      'Accept-Language': 'en-US,en;q=0.5',
+      'Connection': 'keep-alive',
+    }
+  }
+};
+
 try {
   if (process.env.YOUTUBE_COOKIES) {
     ytdlAgent = ytdl.createAgent(JSON.parse(process.env.YOUTUBE_COOKIES));
@@ -280,9 +292,10 @@ export async function playTrack(client: ExtendedClient, queue: MusicQueue): Prom
   try {
     const stream = ytdl(track.url, {
       filter: 'audioonly',
-      quality: 'highestaudio',
+      quality: 'lowestaudio',
       highWaterMark: 1 << 25,
       agent: ytdlAgent,
+      ...defaultYtdlOptions,
     });
     
     const resource = createAudioResource(stream, {
@@ -316,7 +329,13 @@ export async function playTrack(client: ExtendedClient, queue: MusicQueue): Prom
     
     const textChannel = await client.channels.fetch(queue.textChannelId) as TextChannel;
     if (textChannel) {
-      if (error.message?.includes('429') || error.message?.includes('rate limit')) {
+      if (error.message?.includes('403') || error.message?.includes('Status code: 403')) {
+        await textChannel.send({
+          embeds: [new EmbedBuilder()
+            .setColor(config.colors.error)
+            .setDescription('❌ YouTube bloqueó el acceso a este video. Esto puede pasar con videos con restricciones o por límites de solicitudes. Intenta con otro video.')]
+        });
+      } else if (error.message?.includes('429') || error.message?.includes('rate limit')) {
         await textChannel.send({
           embeds: [new EmbedBuilder()
             .setColor(config.colors.error)
