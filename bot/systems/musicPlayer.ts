@@ -17,12 +17,24 @@ import { config } from '../config';
 // Initialize play-dl with cookies if available
 async function initPlayDl() {
   try {
+    // Set YouTube cookies for authentication
     if (process.env.YOUTUBE_COOKIES) {
-      // play-dl uses a different cookie format, we'll skip this for now
-      console.log('play-dl initialized (cookies not configured - not needed with play-dl)');
+      const cookies = JSON.parse(process.env.YOUTUBE_COOKIES);
+      // Convert cookie array to cookie string format for play-dl
+      const cookieString = cookies.map((c: any) => `${c.name}=${c.value}`).join('; ');
+      
+      await play.setToken({
+        youtube: {
+          cookie: cookieString
+        }
+      });
+      console.log('play-dl initialized with YouTube cookies');
+    } else {
+      console.log('play-dl initialized without cookies');
     }
   } catch (error) {
-    console.warn('Warning: Failed to initialize play-dl:', error);
+    console.warn('Warning: Failed to initialize play-dl with cookies:', error);
+    console.log('Continuing without YouTube authentication...');
   }
 }
 initPlayDl();
