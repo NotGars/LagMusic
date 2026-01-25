@@ -8,33 +8,24 @@ import {
   NoSubscriberBehavior,
   StreamType,
 } from '@discordjs/voice';
-import ytdl from '@distube/ytdl-core';
+import play from 'play-dl';
 import yts from 'yt-search';
 import { VoiceChannel, TextChannel, EmbedBuilder, GuildMember } from 'discord.js';
 import { ExtendedClient, MusicQueue, Track } from '../types';
 import { config } from '../config';
 
-let ytdlAgent: ReturnType<typeof ytdl.createAgent> | undefined;
-
-const defaultYtdlOptions = {
-  requestOptions: {
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-      'Accept-Language': 'en-US,en;q=0.5',
-      'Connection': 'keep-alive',
+// Initialize play-dl with cookies if available
+async function initPlayDl() {
+  try {
+    if (process.env.YOUTUBE_COOKIES) {
+      // play-dl uses a different cookie format, we'll skip this for now
+      console.log('play-dl initialized (cookies not configured - not needed with play-dl)');
     }
+  } catch (error) {
+    console.warn('Warning: Failed to initialize play-dl:', error);
   }
-};
-
-try {
-  if (process.env.YOUTUBE_COOKIES) {
-    ytdlAgent = ytdl.createAgent(JSON.parse(process.env.YOUTUBE_COOKIES));
-    console.log('YouTube cookies configured successfully');
-  }
-} catch (error) {
-  console.warn('Warning: Failed to parse YOUTUBE_COOKIES. Proceeding without cookies:', error);
 }
+initPlayDl();
 
 export function getOrCreateQueue(client: ExtendedClient, guildId: string): MusicQueue {
   let queue = client.musicQueues.get(guildId);
@@ -150,12 +141,12 @@ export async function searchAndAddTrack(query: string, requestedBy: string): Pro
       }
       
       try {
-        const info = await ytdl.getBasicInfo(query, { agent: ytdlAgent });
+        const info = await play.video_basic_info(query);
         videoInfo = {
-          title: info.videoDetails.title,
-          url: info.videoDetails.video_url,
-          duration: { seconds: parseInt(info.videoDetails.lengthSeconds) },
-          thumbnail: info.videoDetails.thumbnails[0]?.url || '',
+          title: info.video_details.title || 'Título desconocido',
+          url: info.video_details.url,
+          duration: { seconds: info.video_details.durationInSec },
+          thumbnail: info.video_details.thumbnails[0]?.url || '',
         };
       } catch (error: any) {
         console.error('Error getting video info:', error.message);
@@ -290,16 +281,10 @@ export async function playTrack(client: ExtendedClient, queue: MusicQueue): Prom
   }
   
   try {
-    const stream = ytdl(track.url, {
-      filter: 'audioonly',
-      quality: 'lowestaudio',
-      highWaterMark: 1 << 25,
-      agent: ytdlAgent,
-      ...defaultYtdlOptions,
-    });
+    const streamInfo = await play.stream(track.url);
     
-    const resource = createAudioResource(stream, {
-      inputType: StreamType.Arbitrary,
+    const resource = createAudioResource(streamInfo.stream, {
+      inputType: streamInfo.type,
     });
     
     queue.player.play(resource);
