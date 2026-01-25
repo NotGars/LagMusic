@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder, GuildMember } from 'discord.js';
+import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder, GuildMember, MessageFlags } from 'discord.js';
 import { Command, ExtendedClient } from '../types';
 import { config } from '../config';
 import { connectToVoice, searchAndAddTrack, searchPlaylist, playTrack, getOrCreateQueue } from '../systems/musicPlayer';
@@ -6,15 +6,15 @@ import { connectToVoice, searchAndAddTrack, searchPlaylist, playTrack, getOrCrea
 export const playCommand: Command = {
   data: new SlashCommandBuilder()
     .setName('play')
-    .setDescription('Reproduce una canción o playlist')
+    .setDescription('Reproduce una canción o playlist de YouTube')
     .addStringOption(option =>
       option.setName('query')
-        .setDescription('Nombre de la canción o URL')
+        .setDescription('Nombre de la canción o URL de YouTube')
         .setRequired(true)
     )
-    .addStringOption(option =>
+    .addBooleanOption(option =>
       option.setName('playlist')
-        .setDescription('Nombre de la plataforma (YouTube, Spotify, etc.) para buscar playlist')
+        .setDescription('Buscar como playlist en YouTube')
         .setRequired(false)
     ),
   
@@ -29,7 +29,7 @@ export const playCommand: Command = {
             .setColor(config.colors.error)
             .setDescription('❌ Debes estar en un canal de voz para usar este comando.')
         ],
-        ephemeral: true
+        flags: MessageFlags.Ephemeral
       });
       return;
     }
@@ -37,15 +37,27 @@ export const playCommand: Command = {
     await interaction.deferReply();
     
     const query = interaction.options.getString('query', true);
-    const playlistSource = interaction.options.getString('playlist');
+    const isPlaylist = interaction.options.getBoolean('playlist') || false;
     const client = interaction.client as ExtendedClient;
     
     try {
       const queue = await connectToVoice(client, voiceChannel as any, interaction.channelId);
       
-      if (playlistSource) {
-        const tracks = await searchPlaylist(query, playlistSource, member.displayName);
+      if (isPlaylist || query.includes('youtube.com/playlist')) {
+        const playlistResult = await searchPlaylist(query, 'youtube', member.displayName);
         
+        if ('error' in playlistResult) {
+          await interaction.editReply({
+            embeds: [
+              new EmbedBuilder()
+                .setColor(config.colors.error)
+                .setDescription(`❌ ${playlistResult.error}`)
+            ]
+          });
+          return;
+        }
+        
+        const tracks = playlistResult;
         if (tracks.length === 0) {
           await interaction.editReply({
             embeds: [
@@ -67,14 +79,14 @@ export const playCommand: Command = {
               .setDescription(`Se agregaron **${tracks.length}** canciones a la cola.`)
               .addFields(
                 { name: '🎵 Primera canción', value: tracks[0].title, inline: true },
-                { name: '📀 Fuente', value: playlistSource.toUpperCase(), inline: true }
+                { name: '📀 Fuente', value: 'YOUTUBE', inline: true }
               )
           ]
         });
       } else {
-        const track = await searchAndAddTrack(query, member.displayName);
+        const result = await searchAndAddTrack(query, member.displayName);
         
-        if (!track) {
+        if (!result) {
           await interaction.editReply({
             embeds: [
               new EmbedBuilder()
@@ -85,6 +97,18 @@ export const playCommand: Command = {
           return;
         }
         
+        if ('error' in result) {
+          await interaction.editReply({
+            embeds: [
+              new EmbedBuilder()
+                .setColor(config.colors.error)
+                .setDescription(`❌ ${result.error}`)
+            ]
+          });
+          return;
+        }
+        
+        const track = result;
         queue.tracks.push(track);
         
         const position = queue.tracks.length;

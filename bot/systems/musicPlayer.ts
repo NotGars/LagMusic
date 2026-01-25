@@ -14,6 +14,16 @@ import { VoiceChannel, TextChannel, EmbedBuilder, GuildMember } from 'discord.js
 import { ExtendedClient, MusicQueue, Track } from '../types';
 import { config } from '../config';
 
+let ytdlAgent: ReturnType<typeof ytdl.createAgent> | undefined;
+try {
+  if (process.env.YOUTUBE_COOKIES) {
+    ytdlAgent = ytdl.createAgent(JSON.parse(process.env.YOUTUBE_COOKIES));
+    console.log('YouTube cookies configured successfully');
+  }
+} catch (error) {
+  console.warn('Warning: Failed to parse YOUTUBE_COOKIES. Proceeding without cookies:', error);
+}
+
 export function getOrCreateQueue(client: ExtendedClient, guildId: string): MusicQueue {
   let queue = client.musicQueues.get(guildId);
   if (!queue) {
@@ -101,29 +111,46 @@ function extractVideoId(url: string): string | null {
   return null;
 }
 
-export async function searchAndAddTrack(query: string, requestedBy: string): Promise<Track | null> {
+function isSoundCloudUrl(query: string): boolean {
+  return query.includes('soundcloud.com');
+}
+
+function isSpotifyUrl(query: string): boolean {
+  return query.includes('spotify.com');
+}
+
+export async function searchAndAddTrack(query: string, requestedBy: string): Promise<Track | null | { error: string }> {
   try {
-    let videoUrl: string;
+    if (isSoundCloudUrl(query)) {
+      return { error: 'SoundCloud no está soportado actualmente. Por favor usa búsquedas de YouTube o URLs de YouTube.' };
+    }
+    
+    if (isSpotifyUrl(query)) {
+      return { error: 'Spotify no está soportado actualmente. Por favor busca la canción por nombre en lugar de usar el enlace de Spotify.' };
+    }
+
     let videoInfo: { title: string; url: string; duration: { seconds: number }; thumbnail: string };
 
     if (isYouTubeUrl(query)) {
       const videoId = extractVideoId(query);
       if (!videoId) {
-        console.error('Invalid YouTube URL');
-        return null;
+        return { error: 'URL de YouTube inválida. Verifica el enlace.' };
       }
       
       try {
-        const info = await ytdl.getBasicInfo(query);
+        const info = await ytdl.getBasicInfo(query, { agent: ytdlAgent });
         videoInfo = {
           title: info.videoDetails.title,
           url: info.videoDetails.video_url,
           duration: { seconds: parseInt(info.videoDetails.lengthSeconds) },
           thumbnail: info.videoDetails.thumbnails[0]?.url || '',
         };
-      } catch (error) {
-        console.error('Error getting video info:', error);
-        return null;
+      } catch (error: any) {
+        console.error('Error getting video info:', error.message);
+        if (error.message?.includes('Sign in') || error.message?.includes('age')) {
+          return { error: 'Este video requiere iniciar sesión o tiene restricción de edad.' };
+        }
+        return { error: 'No se pudo obtener información del video. Intenta con otro enlace.' };
       }
     } else {
       const searchResult = await yts(query);
@@ -156,8 +183,16 @@ export async function searchAndAddTrack(query: string, requestedBy: string): Pro
   }
 }
 
-export async function searchPlaylist(query: string, source: string, requestedBy: string): Promise<Track[]> {
+export async function searchPlaylist(query: string, source: string, requestedBy: string): Promise<Track[] | { error: string }> {
   const tracks: Track[] = [];
+  
+  if (isSoundCloudUrl(query) || source.toLowerCase() === 'soundcloud') {
+    return { error: 'SoundCloud no está soportado actualmente. Por favor usa playlists de YouTube.' };
+  }
+  
+  if (isSpotifyUrl(query) || source.toLowerCase() === 'spotify') {
+    return { error: 'Spotify no está soportado actualmente. Por favor usa playlists de YouTube.' };
+  }
   
   try {
     if (query.includes('youtube.com/playlist')) {
@@ -179,7 +214,7 @@ export async function searchPlaylist(query: string, source: string, requestedBy:
         }
       }
     } else {
-      const searchResult = await yts(`${source} ${query} playlist`);
+      const searchResult = await yts(`${query} playlist`);
       if (searchResult.playlists && searchResult.playlists.length > 0) {
         const playlist = searchResult.playlists[0];
         const playlistDetails = await yts({ listId: playlist.listId });
@@ -247,6 +282,7 @@ export async function playTrack(client: ExtendedClient, queue: MusicQueue): Prom
       filter: 'audioonly',
       quality: 'highestaudio',
       highWaterMark: 1 << 25,
+      agent: ytdlAgent,
     });
     
     const resource = createAudioResource(stream, {

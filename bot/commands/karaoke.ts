@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder, GuildMember } from 'discord.js';
+import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder, GuildMember, MessageFlags } from 'discord.js';
 import { Command, ExtendedClient } from '../types';
 import { config } from '../config';
 import { connectToVoice, searchAndAddTrack, playTrack, getOrCreateQueue } from '../systems/musicPlayer';
@@ -24,7 +24,7 @@ export const karaokeCommand: Command = {
             .setColor(config.colors.error)
             .setDescription('❌ Debes estar en un canal de voz para usar este comando.')
         ],
-        ephemeral: true
+        flags: MessageFlags.Ephemeral
       });
       return;
     }
@@ -38,9 +38,9 @@ export const karaokeCommand: Command = {
     try {
       const queue = await connectToVoice(client, voiceChannel as any, interaction.channelId);
       
-      const track = await searchAndAddTrack(karaokeQuery, member.displayName);
+      const result = await searchAndAddTrack(karaokeQuery, member.displayName);
       
-      if (!track) {
+      if (!result) {
         await interaction.editReply({
           embeds: [
             new EmbedBuilder()
@@ -51,6 +51,18 @@ export const karaokeCommand: Command = {
         return;
       }
       
+      if ('error' in result) {
+        await interaction.editReply({
+          embeds: [
+            new EmbedBuilder()
+              .setColor(config.colors.error)
+              .setDescription(`❌ ${result.error}`)
+          ]
+        });
+        return;
+      }
+      
+      const track = result;
       queue.tracks.push(track);
       
       await interaction.editReply({

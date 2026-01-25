@@ -1,5 +1,6 @@
 import { 
-  SlashCommandBuilder, 
+  SlashCommandBuilder,
+  SlashCommandOptionsOnlyBuilder,
   ChatInputCommandInteraction, 
   Client, 
   Collection,
@@ -9,7 +10,7 @@ import {
 import { AudioPlayer, AudioResource, VoiceConnection } from '@discordjs/voice';
 
 export interface Command {
-  data: SlashCommandBuilder | Omit<SlashCommandBuilder, "addSubcommand" | "addSubcommandGroup">;
+  data: SlashCommandBuilder | SlashCommandOptionsOnlyBuilder | Omit<SlashCommandBuilder, "addSubcommand" | "addSubcommandGroup">;
   execute: (interaction: ChatInputCommandInteraction) => Promise<void>;
 }
 
