@@ -185,32 +185,32 @@ export async function getSpotifyAlbumTracks(url: string): Promise<SpotifyTrackIn
 }
 
 function extractSpotifyTrackId(url: string): string | null {
-  const match = url.match(/spotify\.com\/track\/([a-zA-Z0-9]+)/);
+  const match = url.match(/spotify\.com\/(?:intl-[a-z]+\/)?track\/([a-zA-Z0-9]+)/);
   return match ? match[1] : null;
 }
 
 function extractSpotifyPlaylistId(url: string): string | null {
-  const match = url.match(/spotify\.com\/playlist\/([a-zA-Z0-9]+)/);
+  const match = url.match(/spotify\.com\/(?:intl-[a-z]+\/)?playlist\/([a-zA-Z0-9]+)/);
   return match ? match[1] : null;
 }
 
 function extractSpotifyAlbumId(url: string): string | null {
-  const match = url.match(/spotify\.com\/album\/([a-zA-Z0-9]+)/);
+  const match = url.match(/spotify\.com\/(?:intl-[a-z]+\/)?album\/([a-zA-Z0-9]+)/);
   return match ? match[1] : null;
 }
 
 export function isSpotifyTrackUrl(url: string): boolean {
-  return /spotify\.com\/track\//.test(url);
+  return /(?:open\.)?spotify\.com\/(?:intl-[a-z]+\/)?track\//.test(url);
 }
 
 export function isSpotifyPlaylistUrl(url: string): boolean {
-  return /spotify\.com\/playlist\//.test(url);
+  return /(?:open\.)?spotify\.com\/(?:intl-[a-z]+\/)?playlist\//.test(url);
 }
 
 export function isSpotifyAlbumUrl(url: string): boolean {
-  return /spotify\.com\/album\//.test(url);
+  return /(?:open\.)?spotify\.com\/(?:intl-[a-z]+\/)?album\//.test(url);
 }
 
 export function isSpotifyUrl(url: string): boolean {
-  return url.includes('spotify.com');
+  return url.includes('spotify.com') || url.includes('open.spotify');
 }

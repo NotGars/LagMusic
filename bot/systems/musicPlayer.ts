@@ -140,9 +140,6 @@ function isSoundCloudUrl(query: string): boolean {
   return query.includes('soundcloud.com');
 }
 
-function isSpotifyUrlLocal(query: string): boolean {
-  return query.includes('spotify.com');
-}
 
 export async function searchAndAddTrack(query: string, requestedBy: string): Promise<Track | null | { error: string }> {
   try {
