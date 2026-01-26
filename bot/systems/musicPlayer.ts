@@ -13,6 +13,16 @@ import yts from 'yt-search';
 import { VoiceChannel, TextChannel, EmbedBuilder, GuildMember } from 'discord.js';
 import { ExtendedClient, MusicQueue, Track } from '../types';
 import { config } from '../config';
+import {
+  isSpotifyUrl,
+  isSpotifyTrackUrl,
+  isSpotifyPlaylistUrl,
+  isSpotifyAlbumUrl,
+  getSpotifyTrackInfo,
+  getSpotifyPlaylistTracks,
+  getSpotifyAlbumTracks,
+  getSpotifyClient,
+} from './spotifyClient';
 
 // Initialize play-dl with cookies if available
 async function initPlayDl() {
@@ -130,7 +140,7 @@ function isSoundCloudUrl(query: string): boolean {
   return query.includes('soundcloud.com');
 }
 
-function isSpotifyUrl(query: string): boolean {
+function isSpotifyUrlLocal(query: string): boolean {
   return query.includes('spotify.com');
 }
 
@@ -141,7 +151,32 @@ export async function searchAndAddTrack(query: string, requestedBy: string): Pro
     }
     
     if (isSpotifyUrl(query)) {
-      return { error: 'Spotify no está soportado actualmente. Por favor busca la canción por nombre en lugar de usar el enlace de Spotify.' };
+      if (isSpotifyTrackUrl(query)) {
+        const spotifyInfo = await getSpotifyTrackInfo(query);
+        if (!spotifyInfo) {
+          return { error: 'No se pudo obtener información de Spotify. Verifica que las credenciales estén configuradas.' };
+        }
+        
+        console.log(`Buscando en YouTube: ${spotifyInfo.searchQuery}`);
+        const searchResult = await yts(spotifyInfo.searchQuery);
+        
+        if (!searchResult.videos || searchResult.videos.length === 0) {
+          return { error: `No se encontró "${spotifyInfo.title}" en YouTube.` };
+        }
+        
+        const video = searchResult.videos[0];
+        return {
+          title: `${spotifyInfo.title} - ${spotifyInfo.artist}`,
+          url: video.url,
+          duration: formatDuration(video.seconds),
+          thumbnail: spotifyInfo.thumbnail || video.thumbnail || '',
+          requestedBy,
+          source: 'spotify',
+        };
+      } else if (isSpotifyPlaylistUrl(query) || isSpotifyAlbumUrl(query)) {
+        return { error: 'Para playlists y álbumes de Spotify, usa el comando con la opción de fuente "spotify".' };
+      }
+      return { error: 'URL de Spotify no válida.' };
     }
 
     let videoInfo: { title: string; url: string; duration: { seconds: number }; thumbnail: string };
@@ -206,7 +241,47 @@ export async function searchPlaylist(query: string, source: string, requestedBy:
   }
   
   if (isSpotifyUrl(query) || source.toLowerCase() === 'spotify') {
-    return { error: 'Spotify no está soportado actualmente. Por favor usa playlists de YouTube.' };
+    const spotify = await getSpotifyClient();
+    if (!spotify) {
+      return { error: 'Spotify no está configurado. Necesitas agregar SPOTIFY_CLIENT_ID y SPOTIFY_CLIENT_SECRET.' };
+    }
+    
+    let spotifyTracks: Awaited<ReturnType<typeof getSpotifyPlaylistTracks>> = [];
+    
+    if (isSpotifyPlaylistUrl(query)) {
+      spotifyTracks = await getSpotifyPlaylistTracks(query);
+    } else if (isSpotifyAlbumUrl(query)) {
+      spotifyTracks = await getSpotifyAlbumTracks(query);
+    } else {
+      return { error: 'URL de Spotify no válida. Usa un enlace de playlist o álbum.' };
+    }
+    
+    if (spotifyTracks.length === 0) {
+      return { error: 'No se pudieron obtener las canciones de Spotify.' };
+    }
+    
+    console.log(`Procesando ${spotifyTracks.length} canciones de Spotify...`);
+    
+    for (const spotifyTrack of spotifyTracks.slice(0, 50)) {
+      try {
+        const searchResult = await yts(spotifyTrack.searchQuery);
+        if (searchResult.videos && searchResult.videos.length > 0) {
+          const video = searchResult.videos[0];
+          tracks.push({
+            title: `${spotifyTrack.title} - ${spotifyTrack.artist}`,
+            url: video.url,
+            duration: formatDuration(video.seconds),
+            thumbnail: spotifyTrack.thumbnail || video.thumbnail || '',
+            requestedBy,
+            source: 'spotify',
+          });
+        }
+      } catch (error) {
+        console.error(`Error buscando: ${spotifyTrack.searchQuery}`, error);
+      }
+    }
+    
+    return tracks.length > 0 ? tracks : { error: 'No se encontraron canciones en YouTube.' };
   }
   
   try {
