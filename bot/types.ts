@@ -127,5 +127,44 @@ export const RANKCARD_STYLES: RankcardStyle[] = [
     progressBarColor: '#7CB9A8',
     fontFamily: 'Arial',
     description: 'Colores pastel y estilo tranquilo tipo escritorio anime.'
+  },
+  {
+    id: 4,
+    name: 'Lo-fi Quiet Afternoon',
+    unlockLevel: 35,
+    backgroundColor: '#FFF5EB',
+    primaryColor: '#E8956A',
+    secondaryColor: '#D4845E',
+    accentColor: '#FFE0C9',
+    textColor: '#5C4033',
+    progressBarColor: '#F4A574',
+    fontFamily: 'Arial',
+    description: 'Colores naranja pastel y tonos de atardeceres tranquilos.'
+  },
+  {
+    id: 5,
+    name: 'Lo-fi Study Night',
+    unlockLevel: 70,
+    backgroundColor: '#1A1A2E',
+    primaryColor: '#4A5568',
+    secondaryColor: '#2D3748',
+    accentColor: '#3D4A5C',
+    textColor: '#E2E8F0',
+    progressBarColor: '#5A6A7F',
+    fontFamily: 'Arial',
+    description: 'Escritorio de estudio nocturno con colores de noche.'
+  },
+  {
+    id: 6,
+    name: 'Lo-fi Nostalgic Memory',
+    unlockLevel: 100,
+    backgroundColor: '#2A2440',
+    primaryColor: '#7B68A6',
+    secondaryColor: '#9B8AB8',
+    accentColor: '#5C4D7D',
+    textColor: '#D4C8E8',
+    progressBarColor: '#8B7AAB',
+    fontFamily: 'Arial',
+    description: 'Tonos azul, violeta y sepia que transmiten nostalgia.'
   }
 ];

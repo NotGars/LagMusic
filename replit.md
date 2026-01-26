@@ -69,10 +69,13 @@ bot/
 ### Level System
 - 2 XP per minute in voice channels
 - 3 XP per minute when listening to music with bot
-- 3 unlockable rankcard styles:
+- 6 unlockable rankcard styles:
   1. Lo-fi Night (Level 0)
   2. Lo-fi Minimal (Level 25)
-  3. Lo-fi Anime Desk (Level 50)
+  3. Lo-fi Quiet Afternoon (Level 35)
+  4. Lo-fi Anime Desk (Level 50)
+  5. Lo-fi Study Night (Level 70)
+  6. Lo-fi Nostalgic Memory (Level 100)
 - Staff commands (role ID: 1230949715127042098):
   - /setlevel - Set a user's level directly
   - /addxp - Add XP to a user

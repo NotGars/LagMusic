@@ -156,6 +156,133 @@ function drawLofiAnimeDeskBackground(ctx: CanvasRenderingContext2D, width: numbe
   ctx.fillRect(width - 42, height - 48, 14, 5);
 }
 
+function drawLofiQuietAfternoonBackground(ctx: CanvasRenderingContext2D, width: number, height: number, style: RankcardStyle) {
+  const gradient = ctx.createLinearGradient(0, 0, width, height);
+  gradient.addColorStop(0, '#FFF5EB');
+  gradient.addColorStop(0.4, '#FFECD9');
+  gradient.addColorStop(0.7, '#FFD4B8');
+  gradient.addColorStop(1, '#FFCBA4');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, width, height);
+  
+  ctx.fillStyle = 'rgba(255, 180, 100, 0.3)';
+  ctx.beginPath();
+  ctx.arc(width - 40, 60, 70, 0, Math.PI * 2);
+  ctx.fill();
+  
+  ctx.fillStyle = 'rgba(255, 200, 150, 0.25)';
+  ctx.beginPath();
+  ctx.arc(width - 60, 45, 50, 0, Math.PI * 2);
+  ctx.fill();
+  
+  ctx.fillStyle = 'rgba(200, 120, 80, 0.15)';
+  for (let i = 0; i < 5; i++) {
+    ctx.beginPath();
+    ctx.ellipse(60 + i * 25, height - 30, 8 + Math.random() * 5, 12 + Math.random() * 8, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  
+  ctx.fillStyle = 'rgba(180, 100, 60, 0.12)';
+  ctx.beginPath();
+  ctx.moveTo(0, height - 15);
+  ctx.quadraticCurveTo(width / 4, height - 35, width / 2, height - 20);
+  ctx.quadraticCurveTo(width * 0.75, height - 5, width, height - 25);
+  ctx.lineTo(width, height);
+  ctx.lineTo(0, height);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function drawLofiStudyNightBackground(ctx: CanvasRenderingContext2D, width: number, height: number, style: RankcardStyle) {
+  const gradient = ctx.createLinearGradient(0, 0, width, height);
+  gradient.addColorStop(0, '#1A1A2E');
+  gradient.addColorStop(0.5, '#16213E');
+  gradient.addColorStop(1, '#0F0F1A');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, width, height);
+  
+  ctx.fillStyle = 'rgba(255, 255, 200, 0.03)';
+  for (let i = 0; i < 20; i++) {
+    const x = Math.random() * width;
+    const y = Math.random() * height * 0.5;
+    ctx.beginPath();
+    ctx.arc(x, y, 1 + Math.random() * 2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  
+  ctx.fillStyle = 'rgba(80, 80, 120, 0.4)';
+  ctx.fillRect(width - 90, height - 60, 70, 50);
+  
+  ctx.fillStyle = 'rgba(60, 60, 100, 0.5)';
+  ctx.fillRect(width - 85, height - 55, 60, 35);
+  
+  ctx.fillStyle = 'rgba(150, 180, 255, 0.15)';
+  ctx.fillRect(width - 83, height - 53, 56, 31);
+  
+  ctx.fillStyle = 'rgba(255, 200, 100, 0.6)';
+  ctx.beginPath();
+  ctx.arc(width - 120, height - 40, 8, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(255, 200, 100, 0.2)';
+  ctx.beginPath();
+  ctx.arc(width - 120, height - 40, 15, 0, Math.PI * 2);
+  ctx.fill();
+  
+  ctx.fillStyle = 'rgba(100, 80, 60, 0.4)';
+  ctx.fillRect(30, height - 35, 50, 8);
+  ctx.fillRect(35, height - 50, 40, 15);
+  ctx.fillRect(40, height - 65, 30, 15);
+  
+  ctx.fillStyle = 'rgba(200, 180, 150, 0.3)';
+  ctx.fillRect(90, height - 40, 30, 4);
+  ctx.fillRect(95, height - 35, 20, 4);
+}
+
+function drawLofiNostalgicMemoryBackground(ctx: CanvasRenderingContext2D, width: number, height: number, style: RankcardStyle) {
+  const gradient = ctx.createLinearGradient(0, 0, width, height);
+  gradient.addColorStop(0, '#2A2440');
+  gradient.addColorStop(0.3, '#3D3560');
+  gradient.addColorStop(0.6, '#2E2850');
+  gradient.addColorStop(1, '#1E1830');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, width, height);
+  
+  ctx.fillStyle = 'rgba(180, 150, 100, 0.08)';
+  ctx.fillRect(0, 0, width, height);
+  
+  ctx.fillStyle = 'rgba(100, 80, 150, 0.2)';
+  ctx.beginPath();
+  ctx.arc(width - 80, 50, 60, 0, Math.PI * 2);
+  ctx.fill();
+  
+  ctx.fillStyle = 'rgba(150, 120, 180, 0.15)';
+  ctx.beginPath();
+  ctx.arc(100, height - 40, 50, 0, Math.PI * 2);
+  ctx.fill();
+  
+  ctx.fillStyle = 'rgba(200, 180, 220, 0.06)';
+  for (let i = 0; i < 8; i++) {
+    const x = Math.random() * width;
+    const y = Math.random() * height;
+    ctx.beginPath();
+    ctx.arc(x, y, 20 + Math.random() * 30, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  
+  ctx.fillStyle = 'rgba(180, 160, 200, 0.1)';
+  ctx.beginPath();
+  ctx.moveTo(width - 60, height - 50);
+  ctx.lineTo(width - 40, height - 80);
+  ctx.lineTo(width - 50, height - 50);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillRect(width - 55, height - 50, 10, 40);
+  
+  ctx.fillStyle = 'rgba(220, 200, 150, 0.1)';
+  ctx.fillRect(20, height - 45, 35, 5);
+  ctx.fillRect(25, height - 55, 25, 10);
+}
+
 function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number) {
   ctx.beginPath();
   ctx.moveTo(x + radius, y);
@@ -194,6 +321,17 @@ export async function generateRankcardImage(
       break;
     case 3:
       drawLofiAnimeDeskBackground(ctx, width, height, style);
+      break;
+    case 4:
+      drawLofiQuietAfternoonBackground(ctx, width, height, style);
+      break;
+    case 5:
+      drawLofiStudyNightBackground(ctx, width, height, style);
+      addGrainEffect(ctx, width, height, 8);
+      break;
+    case 6:
+      drawLofiNostalgicMemoryBackground(ctx, width, height, style);
+      addGrainEffect(ctx, width, height, 10);
       break;
     default:
       drawLofiNightBackground(ctx, width, height, style);
@@ -267,7 +405,7 @@ export async function generateRankcardImage(
   roundRect(ctx, progressBarX, progressBarY, progressWidth, progressBarHeight, progressBarHeight / 2);
   ctx.fill();
   
-  const isLightStyle = style.id === 2 || style.id === 3;
+  const isLightStyle = style.id === 2 || style.id === 3 || style.id === 4;
   ctx.fillStyle = isLightStyle ? '#4A4A4A' : '#FFFFFF';
   ctx.font = 'bold 12px Arial';
   ctx.textAlign = 'center';
