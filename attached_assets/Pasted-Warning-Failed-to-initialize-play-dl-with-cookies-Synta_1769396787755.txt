@@ -1,0 +1,41 @@
+Warning: Failed to initialize play-dl with cookies: SyntaxError: Unexpected token 'A', "APISID=7kE"... is not valid JSON
+    at JSON.parse (<anonymous>)
+    at initPlayDl (/opt/render/project/src/bot/systems/musicPlayer.ts:31:28)
+    at play (/opt/render/project/src/bot/systems/musicPlayer.ts:49:1)
+    at Object.<anonymous> (/opt/render/project/src/bot/systems/musicPlayer.ts:485:17)
+    at Module._compile (node:internal/modules/cjs/loader:1803:14)
+    at Object.transformer (/opt/render/.cache/_npx/fd45a72a545557e9/node_modules/tsx/dist/register-D46fvsV_.cjs:3:1104)
+    at Module.load (node:internal/modules/cjs/loader:1524:32)
+    at Module._load (node:internal/modules/cjs/loader:1326:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:328:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:245:24)
+Continuing without YouTube authentication...
+node:internal/modules/cjs/loader:1447
+  const err = new Error(message);
+              ^
+Error: Cannot find module 'gifenc'
+Require stack:
+- /opt/render/project/src/bot/systems/rankcardGenerator.ts
+- /opt/render/project/src/bot/commands/level.ts
+- /opt/render/project/src/bot/index.ts
+    at node:internal/modules/cjs/loader:1447:15
+    at nextResolveSimple (/opt/render/.cache/_npx/fd45a72a545557e9/node_modules/tsx/dist/register-D46fvsV_.cjs:4:1004)
+    at /opt/render/.cache/_npx/fd45a72a545557e9/node_modules/tsx/dist/register-D46fvsV_.cjs:3:2630
+    at /opt/render/.cache/_npx/fd45a72a545557e9/node_modules/tsx/dist/register-D46fvsV_.cjs:3:1542
+    at resolveTsPaths (/opt/render/.cache/_npx/fd45a72a545557e9/node_modules/tsx/dist/register-D46fvsV_.cjs:4:760)
+    at /opt/render/.cache/_npx/fd45a72a545557e9/node_modules/tsx/dist/register-D46fvsV_.cjs:4:1102
+    at m._resolveFilename (file:///opt/render/.cache/_npx/fd45a72a545557e9/node_modules/tsx/dist/register-B7jrtLTO.mjs:1:789)
+    at defaultResolveImpl (node:internal/modules/cjs/loader:1058:19)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1063:22)
+    at Module._load (node:internal/modules/cjs/loader:1233:25) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    '/opt/render/project/src/bot/systems/rankcardGenerator.ts',
+    '/opt/render/project/src/bot/commands/level.ts',
+    '/opt/render/project/src/bot/index.ts'
+  ]
+}
+Node.js v25.4.0
+==> Exited with status 1
+==> Common ways to troubleshoot your deploy: https://render.com/docs/troubleshooting-deploys
+==> Running 'npx tsx index.ts'
