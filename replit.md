@@ -83,3 +83,8 @@ This bot is designed to be deployed on Render (not Replit), using the bot/ direc
 - 24 slash commands implemented
 - TempVoice and Level systems complete
 - README with deployment instructions
+- **January 2026**: Converted level, profile, and leaderboard displays from embeds to generated PNG images using canvas
+  - /level command now displays a full rankcard image
+  - /profile command shows the rankcard image with style info
+  - /leaderboard generates a complete top 10 image with avatars
+  - Three distinct lo-fi styles with unique visual themes
