@@ -14,7 +14,10 @@ export const rankcardCommand: Command = {
         .addChoices(
           { name: '1 - Lo-fi Night (Gratis)', value: 1 },
           { name: '2 - Lo-fi Minimal (Nivel 25)', value: 2 },
-          { name: '3 - Lo-fi Anime Desk (Nivel 50)', value: 3 }
+          { name: '3 - Lo-fi Quiet Afternoon (Nivel 35)', value: 4 },
+          { name: '4 - Lo-fi Anime Desk (Nivel 50)', value: 3 },
+          { name: '5 - Lo-fi Study Night (Nivel 70)', value: 5 },
+          { name: '6 - Lo-fi Nostalgic Memory (Nivel 100)', value: 6 }
         )
     ),
   
@@ -69,7 +72,7 @@ export const rankcardCommand: Command = {
         embeds: [
           new EmbedBuilder()
             .setColor(config.colors.error)
-            .setDescription('❌ Estilo no válido. Usa 1, 2 o 3.')
+            .setDescription('❌ Estilo no válido. Usa un número del 1 al 6.')
         ],
         ephemeral: true
       });
