@@ -5,7 +5,7 @@ LagMusic is a comprehensive Discord music bot with the following features:
 - Music playback from YouTube, Spotify, YouTube Music, SoundCloud
 - Temporary voice channel system (TempVoice)
 - User leveling system with unlockable rankcard styles
-- 24 slash commands for complete control
+- 27 slash commands for complete control
 
 ## Project Structure
 ```
@@ -15,7 +15,7 @@ bot/
 ├── types.ts              # TypeScript interfaces
 ├── package.json          # Bot dependencies
 ├── .env.example          # Environment variables template
-├── commands/             # 24 slash commands
+├── commands/             # 27 slash commands
 │   ├── play.ts           # Play music
 │   ├── skip.ts           # Skip track
 │   ├── pause.ts          # Pause playback
@@ -39,7 +39,10 @@ bot/
 │   ├── profile.ts        # User profile
 │   ├── rankcard.ts       # Change rankcard style
 │   ├── setupTempVoice.ts # Setup TempVoice (Admin)
-│   └── voice.ts          # Voice channel management
+│   ├── voice.ts          # Voice channel management
+│   ├── setlevel.ts       # (Staff) Set user level
+│   ├── addxp.ts          # (Staff) Add XP to user
+│   └── removexp.ts       # (Staff) Remove XP from user
 ├── events/               # Event handlers
 │   ├── ready.ts          # Bot ready event
 │   ├── interactionCreate.ts # Command handler
@@ -70,6 +73,10 @@ bot/
   1. Lo-fi Night (Level 0)
   2. Lo-fi Minimal (Level 25)
   3. Lo-fi Anime Desk (Level 50)
+- Staff commands (role ID: 1230949715127042098):
+  - /setlevel - Set a user's level directly
+  - /addxp - Add XP to a user
+  - /removexp - Remove XP from a user
 
 ## Environment Variables Required
 - `DISCORD_TOKEN` - Bot token from Discord Developer Portal
@@ -88,3 +95,6 @@ This bot is designed to be deployed on Render (not Replit), using the bot/ direc
   - /profile command shows the rankcard image with style info
   - /leaderboard generates a complete top 10 image with avatars
   - Three distinct lo-fi styles with unique visual themes
+- **January 2026**: Added staff commands for level management
+  - /setlevel, /addxp, /removexp commands for staff role
+  - Switched from 'canvas' to '@napi-rs/canvas' for deployment compatibility

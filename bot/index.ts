@@ -35,6 +35,9 @@ import { profileCommand } from './commands/profile';
 import { rankcardCommand } from './commands/rankcard';
 import { setupTempVoiceCommand } from './commands/setupTempVoice';
 import { voiceCommand } from './commands/voice';
+import { setlevelCommand } from './commands/setlevel';
+import { addxpCommand } from './commands/addxp';
+import { removexpCommand } from './commands/removexp';
 
 import { handleVoiceStateUpdate } from './events/voiceStateUpdate';
 import { handleInteractionCreate } from './events/interactionCreate';
@@ -83,6 +86,9 @@ const commands: Command[] = [
   rankcardCommand,
   setupTempVoiceCommand,
   voiceCommand,
+  setlevelCommand,
+  addxpCommand,
+  removexpCommand,
 ];
 
 for (const command of commands) {
