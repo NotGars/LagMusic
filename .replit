@@ -42,3 +42,7 @@ waitForPort = 5000
 
 [userenv.shared]
 GUILD_ID = "1212886282645147768"
+
+[agent]
+expertMode = true
+integrations = ["spotify:1.0.0"]
