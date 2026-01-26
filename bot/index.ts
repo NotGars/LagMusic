@@ -42,6 +42,19 @@ import { removexpCommand } from './commands/removexp';
 import { handleVoiceStateUpdate } from './events/voiceStateUpdate';
 import { handleInteractionCreate } from './events/interactionCreate';
 import { handleReady } from './events/ready';
+import { cleanupAllProcesses } from './systems/cobaltClient';
+
+process.on('SIGINT', () => {
+  console.log('[Bot] Recibida señal SIGINT, limpiando...');
+  cleanupAllProcesses();
+  process.exit(0);
+});
+
+process.on('SIGTERM', () => {
+  console.log('[Bot] Recibida señal SIGTERM, limpiando...');
+  cleanupAllProcesses();
+  process.exit(0);
+});
 
 const client = new Client({
   intents: [

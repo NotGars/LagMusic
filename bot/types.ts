@@ -48,6 +48,7 @@ export interface MusicQueue {
   history: Track[];
   isPlaying: boolean;
   isPaused: boolean;
+  currentCleanup?: (() => void) | null;
 }
 
 export interface TempChannelData {

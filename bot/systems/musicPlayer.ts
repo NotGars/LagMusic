@@ -8,7 +8,6 @@ import {
   NoSubscriberBehavior,
   StreamType,
 } from '@discordjs/voice';
-import play from 'play-dl';
 import yts from 'yt-search';
 import { VoiceChannel, TextChannel, EmbedBuilder, GuildMember } from 'discord.js';
 import { ExtendedClient, MusicQueue, Track } from '../types';
@@ -22,31 +21,9 @@ import {
   getSpotifyPlaylistTracks,
   getSpotifyAlbumTracks,
 } from './spotifyClient';
+import { getAudioUrl, getAudioStream } from './cobaltClient';
 
-// Initialize play-dl with cookies if available
-async function initPlayDl() {
-  try {
-    // Set YouTube cookies for authentication
-    if (process.env.YOUTUBE_COOKIES) {
-      const cookies = JSON.parse(process.env.YOUTUBE_COOKIES);
-      // Convert cookie array to cookie string format for play-dl
-      const cookieString = cookies.map((c: any) => `${c.name}=${c.value}`).join('; ');
-      
-      await play.setToken({
-        youtube: {
-          cookie: cookieString
-        }
-      });
-      console.log('play-dl initialized with YouTube cookies');
-    } else {
-      console.log('play-dl initialized without cookies');
-    }
-  } catch (error) {
-    console.warn('Warning: Failed to initialize play-dl with cookies:', error);
-    console.log('Continuing without YouTube authentication...');
-  }
-}
-initPlayDl();
+console.log('[MusicPlayer] Inicializado con Cobalt API como fuente de audio');
 
 export function getOrCreateQueue(client: ExtendedClient, guildId: string): MusicQueue {
   let queue = client.musicQueues.get(guildId);
@@ -66,6 +43,7 @@ export function getOrCreateQueue(client: ExtendedClient, guildId: string): Music
       history: [],
       isPlaying: false,
       isPaused: false,
+      currentCleanup: null,
     };
     client.musicQueues.set(guildId, queue);
   }
@@ -99,8 +77,40 @@ export async function connectToVoice(client: ExtendedClient, voiceChannel: Voice
       await handleTrackEnd(client, queue);
     });
     
-    player.on('error', (error) => {
-      console.error('Error en el reproductor:', error);
+    player.on('error', async (error) => {
+      console.error('[MusicPlayer] Error en el reproductor:', error);
+      
+      if (queue.currentCleanup) {
+        queue.currentCleanup();
+        queue.currentCleanup = null;
+      }
+      
+      const retryCount = (queue as any)._retryCount || 0;
+      const currentTrack = queue.currentTrack;
+      
+      if (retryCount < 2 && currentTrack) {
+        (queue as any)._retryCount = retryCount + 1;
+        console.log(`[MusicPlayer] Reintentando reproducción (intento ${retryCount + 1}/2)...`);
+        
+        await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
+        
+        queue.tracks.unshift(currentTrack);
+        queue.currentTrack = null;
+        await playTrack(client, queue);
+      } else {
+        (queue as any)._retryCount = 0;
+        
+        const textChannel = await client.channels.fetch(queue.textChannelId) as TextChannel;
+        if (textChannel) {
+          await textChannel.send({
+            embeds: [new EmbedBuilder()
+              .setColor(config.colors.error)
+              .setDescription('❌ Error durante la reproducción. Saltando a la siguiente canción...')]
+          });
+        }
+        
+        await handleTrackEnd(client, queue);
+      }
     });
     
     connection.on(VoiceConnectionStatus.Disconnected, async () => {
@@ -184,18 +194,18 @@ export async function searchAndAddTrack(query: string, requestedBy: string): Pro
       }
       
       try {
-        const info = await play.video_basic_info(query);
+        const info = await yts({ videoId });
+        if (!info) {
+          return { error: 'No se pudo obtener información del video.' };
+        }
         videoInfo = {
-          title: info.video_details.title || 'Título desconocido',
-          url: info.video_details.url,
-          duration: { seconds: info.video_details.durationInSec },
-          thumbnail: info.video_details.thumbnails[0]?.url || '',
+          title: info.title || 'Título desconocido',
+          url: info.url,
+          duration: { seconds: info.seconds || 0 },
+          thumbnail: info.thumbnail || '',
         };
       } catch (error: any) {
         console.error('Error getting video info:', error.message);
-        if (error.message?.includes('Sign in') || error.message?.includes('age')) {
-          return { error: 'Este video requiere iniciar sesión o tiene restricción de edad.' };
-        }
         return { error: 'No se pudo obtener información del video. Intenta con otro enlace.' };
       }
     } else {
@@ -360,25 +370,34 @@ export async function playTrack(client: ExtendedClient, queue: MusicQueue): Prom
   }
   
   try {
-    console.log('Intentando reproducir URL:', track.url);
+    console.log('[MusicPlayer] Intentando reproducir:', track.title);
+    console.log('[MusicPlayer] URL original:', track.url);
     
-    // Validate the URL first
-    const validated = await play.validate(track.url);
-    console.log('URL validada como:', validated);
+    const audioResult = await getAudioUrl(track.url, 1);
     
-    if (validated === false) {
-      throw new Error('Invalid URL');
+    if (!audioResult) {
+      throw new Error('No se pudo obtener el audio de ninguna instancia de Cobalt');
     }
     
-    const streamInfo = await play.stream(track.url);
+    console.log('[MusicPlayer] Audio URL obtenida de:', audioResult.source);
     
-    const resource = createAudioResource(streamInfo.stream, {
-      inputType: streamInfo.type,
+    const streamResult = await getAudioStream(audioResult.url);
+    
+    if (!streamResult) {
+      throw new Error('No se pudo crear el stream de audio');
+    }
+    
+    queue.currentCleanup = streamResult.cleanup;
+    
+    const resource = createAudioResource(streamResult.stream, {
+      inputType: StreamType.Raw,
+      inlineVolume: true,
     });
     
     queue.player.play(resource);
     queue.isPlaying = true;
     queue.isPaused = false;
+    (queue as any)._retryCount = 0;
     
     const textChannel = await client.channels.fetch(queue.textChannelId) as TextChannel;
     if (textChannel) {
@@ -399,29 +418,15 @@ export async function playTrack(client: ExtendedClient, queue: MusicQueue): Prom
     
     return true;
   } catch (error: any) {
-    console.error('Error reproduciendo canción:', error.message || error);
+    console.error('[MusicPlayer] Error reproduciendo canción:', error.message || error);
     
     const textChannel = await client.channels.fetch(queue.textChannelId) as TextChannel;
     if (textChannel) {
-      if (error.message?.includes('403') || error.message?.includes('Status code: 403')) {
-        await textChannel.send({
-          embeds: [new EmbedBuilder()
-            .setColor(config.colors.error)
-            .setDescription('❌ YouTube bloqueó el acceso a este video. Esto puede pasar con videos con restricciones o por límites de solicitudes. Intenta con otro video.')]
-        });
-      } else if (error.message?.includes('429') || error.message?.includes('rate limit')) {
-        await textChannel.send({
-          embeds: [new EmbedBuilder()
-            .setColor(config.colors.error)
-            .setDescription('❌ YouTube está bloqueando las solicitudes. Intenta de nuevo en unos minutos.')]
-        });
-      } else {
-        await textChannel.send({
-          embeds: [new EmbedBuilder()
-            .setColor(config.colors.error)
-            .setDescription('❌ Error al reproducir. Saltando a la siguiente canción...')]
-        });
-      }
+      await textChannel.send({
+        embeds: [new EmbedBuilder()
+          .setColor(config.colors.error)
+          .setDescription('❌ Error al reproducir. Saltando a la siguiente canción...')]
+      });
     }
     
     if (queue.tracks.length > 0) {
@@ -433,6 +438,11 @@ export async function playTrack(client: ExtendedClient, queue: MusicQueue): Prom
 }
 
 async function handleTrackEnd(client: ExtendedClient, queue: MusicQueue) {
+  if (queue.currentCleanup) {
+    queue.currentCleanup();
+    queue.currentCleanup = null;
+  }
+  
   if (queue.loop && queue.currentTrack) {
     queue.tracks.unshift(queue.currentTrack);
   }
@@ -464,6 +474,10 @@ export function shuffleQueue(queue: MusicQueue): void {
 export function destroyQueue(client: ExtendedClient, guildId: string): void {
   const queue = client.musicQueues.get(guildId);
   if (queue) {
+    if (queue.currentCleanup) {
+      queue.currentCleanup();
+      queue.currentCleanup = null;
+    }
     queue.player?.stop();
     queue.connection?.destroy();
     client.musicQueues.delete(guildId);
