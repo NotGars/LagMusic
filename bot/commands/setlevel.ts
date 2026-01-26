@@ -1,6 +1,14 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits } from 'discord.js';
-import { Command, UserLevel, ExtendedClient } from '../types';
+import { Command, UserLevel, ExtendedClient, RANKCARD_STYLES } from '../types';
 import { xpForLevel } from '../config';
+
+function getHighestUnlockedRankcard(level: number): number {
+  const unlocked = RANKCARD_STYLES.filter(style => level >= style.unlockLevel);
+  if (unlocked.length === 0) return 1;
+  return unlocked.reduce((highest, style) => 
+    style.unlockLevel > highest.unlockLevel ? style : highest
+  ).id;
+}
 
 const STAFF_ROLE_ID = '1230949715127042098';
 
@@ -57,6 +65,7 @@ export const setlevelCommand: Command = {
     
     userLevel.level = newLevel;
     userLevel.xp = totalXp;
+    userLevel.selectedRankcard = getHighestUnlockedRankcard(newLevel);
     client.userLevels.set(userKey, userLevel);
     
     await interaction.reply({

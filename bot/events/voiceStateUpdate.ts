@@ -1,6 +1,14 @@
 import { VoiceState, ChannelType, PermissionFlagsBits } from 'discord.js';
-import { ExtendedClient, UserLevel, TempChannelData } from '../types';
+import { ExtendedClient, UserLevel, TempChannelData, RANKCARD_STYLES } from '../types';
 import { config, levelFromXp } from '../config';
+
+function getHighestUnlockedRankcard(level: number): number {
+  const unlocked = RANKCARD_STYLES.filter(style => level >= style.unlockLevel);
+  if (unlocked.length === 0) return 1;
+  return unlocked.reduce((highest, style) => 
+    style.unlockLevel > highest.unlockLevel ? style : highest
+  ).id;
+}
 
 export async function handleVoiceStateUpdate(
   client: ExtendedClient,
@@ -58,8 +66,13 @@ function startVoiceXPTimer(client: ExtendedClient, userKey: string, guildId: str
       userLevel.totalMusicTime += 1;
     }
     
+    const oldLevel = userLevel.level;
     const newLevel = levelFromXp(userLevel.xp);
     userLevel.level = newLevel;
+    
+    if (newLevel > oldLevel) {
+      userLevel.selectedRankcard = getHighestUnlockedRankcard(newLevel);
+    }
     
     client.userLevels.set(userKey, userLevel);
   }, 60000);
