@@ -1,8 +1,18 @@
-import { createCanvas, loadImage, SKRSContext2D } from '@napi-rs/canvas';
+import { createCanvas, loadImage, SKRSContext2D, Image } from '@napi-rs/canvas';
+import { GIFEncoder, quantize, applyPalette } from 'gifenc';
 
 type CanvasRenderingContext2D = SKRSContext2D;
 import { UserLevel, RankcardStyle, RANKCARD_STYLES } from '../types';
 import { xpForLevel } from '../config';
+
+interface Particle {
+  x: number;
+  y: number;
+  size: number;
+  speed: number;
+  opacity: number;
+  angle: number;
+}
 
 export function getAvailableRankcards(level: number): RankcardStyle[] {
   return RANKCARD_STYLES.filter(style => level >= style.unlockLevel);
@@ -438,6 +448,228 @@ export async function generateRankcardImage(
   ctx.fillText(style.name, width - 30, 165);
   
   return canvas.toBuffer('image/png');
+}
+
+function createParticles(width: number, height: number, count: number): Particle[] {
+  const particles: Particle[] = [];
+  for (let i = 0; i < count; i++) {
+    particles.push({
+      x: Math.random() * width,
+      y: Math.random() * height,
+      size: 1 + Math.random() * 3,
+      speed: 0.3 + Math.random() * 0.7,
+      opacity: 0.2 + Math.random() * 0.5,
+      angle: Math.random() * Math.PI * 2,
+    });
+  }
+  return particles;
+}
+
+function drawParticles(ctx: CanvasRenderingContext2D, particles: Particle[], frame: number, style: RankcardStyle) {
+  const isLightStyle = style.id === 2 || style.id === 3 || style.id === 4;
+  const particleColor = isLightStyle ? '80, 80, 80' : '255, 255, 255';
+  
+  for (const particle of particles) {
+    const offsetY = Math.sin(frame * 0.1 + particle.angle) * 3;
+    const offsetX = Math.cos(frame * 0.05 + particle.angle) * 2;
+    const pulseOpacity = particle.opacity * (0.7 + Math.sin(frame * 0.15 + particle.angle) * 0.3);
+    
+    ctx.fillStyle = `rgba(${particleColor}, ${pulseOpacity})`;
+    ctx.beginPath();
+    ctx.arc(
+      particle.x + offsetX,
+      particle.y + offsetY,
+      particle.size,
+      0,
+      Math.PI * 2
+    );
+    ctx.fill();
+  }
+}
+
+function drawGlowEffect(ctx: CanvasRenderingContext2D, x: number, y: number, radius: number, frame: number, color: string) {
+  const pulse = 0.6 + Math.sin(frame * 0.12) * 0.4;
+  const r = parseInt(color.slice(1, 3), 16);
+  const g = parseInt(color.slice(3, 5), 16);
+  const b = parseInt(color.slice(5, 7), 16);
+  
+  for (let i = 3; i > 0; i--) {
+    ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${pulse * 0.1 * (4 - i)})`;
+    ctx.beginPath();
+    ctx.arc(x, y, radius + i * 8, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+export async function generateAnimatedRankcard(
+  userLevel: UserLevel,
+  username: string,
+  avatarUrl: string,
+  rank: number
+): Promise<Buffer> {
+  const width = 600;
+  const height = 200;
+  const frameCount = 20;
+  const delay = 80;
+  
+  const style = getRankcardStyle(userLevel.selectedRankcard);
+  const progress = calculateProgress(userLevel.xp, userLevel.level);
+  const particles = createParticles(width, height, 15);
+  
+  let avatar: Image | null = null;
+  if (avatarUrl) {
+    try {
+      avatar = await loadImage(avatarUrl);
+    } catch {
+      avatar = null;
+    }
+  }
+  
+  const gif = GIFEncoder();
+  
+  for (let frame = 0; frame < frameCount; frame++) {
+    const canvas = createCanvas(width, height);
+    const ctx = canvas.getContext('2d');
+    
+    switch (style.id) {
+      case 1:
+        drawLofiNightBackground(ctx, width, height, style);
+        break;
+      case 2:
+        drawLofiMinimalBackground(ctx, width, height, style);
+        break;
+      case 3:
+        drawLofiAnimeDeskBackground(ctx, width, height, style);
+        break;
+      case 4:
+        drawLofiQuietAfternoonBackground(ctx, width, height, style);
+        break;
+      case 5:
+        drawLofiStudyNightBackground(ctx, width, height, style);
+        break;
+      case 6:
+        drawLofiNostalgicMemoryBackground(ctx, width, height, style);
+        break;
+      default:
+        drawLofiNightBackground(ctx, width, height, style);
+    }
+    
+    drawParticles(ctx, particles, frame, style);
+    
+    drawGlowEffect(ctx, 85, 100, 55, frame, style.primaryColor);
+    
+    if (avatar) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(85, 100, 55, 0, Math.PI * 2);
+      ctx.closePath();
+      
+      const avatarGradient = ctx.createLinearGradient(30, 45, 140, 155);
+      avatarGradient.addColorStop(0, style.primaryColor);
+      avatarGradient.addColorStop(1, style.secondaryColor);
+      ctx.strokeStyle = avatarGradient;
+      ctx.lineWidth = 4;
+      ctx.stroke();
+      
+      ctx.beginPath();
+      ctx.arc(85, 100, 50, 0, Math.PI * 2);
+      ctx.closePath();
+      ctx.clip();
+      ctx.drawImage(avatar, 35, 50, 100, 100);
+      ctx.restore();
+    } else {
+      drawAvatarFallback(ctx, style, username);
+    }
+    
+    ctx.fillStyle = style.textColor;
+    ctx.font = 'bold 26px Arial';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    
+    const displayName = username.length > 18 ? username.substring(0, 15) + '...' : username;
+    ctx.fillText(displayName, 160, 30);
+    
+    ctx.fillStyle = style.secondaryColor;
+    ctx.font = '16px Arial';
+    ctx.fillText(`Rank #${rank}`, 160, 62);
+    
+    ctx.fillStyle = style.textColor;
+    ctx.font = 'bold 20px Arial';
+    ctx.fillText(`Nivel ${userLevel.level}`, 160, 95);
+    
+    ctx.fillStyle = style.secondaryColor;
+    ctx.font = '14px Arial';
+    ctx.textAlign = 'right';
+    ctx.fillText(`${progress.current.toLocaleString()} / ${progress.needed.toLocaleString()} XP`, width - 30, 95);
+    
+    const progressBarX = 160;
+    const progressBarY = 125;
+    const progressBarWidth = width - 190;
+    const progressBarHeight = 22;
+    
+    const animatedProgress = progress.percentage * (0.95 + Math.sin(frame * 0.2) * 0.05);
+    const progressWidth = Math.max(progressBarHeight, (animatedProgress / 100) * progressBarWidth);
+    
+    ctx.fillStyle = hexToRgba(style.accentColor, 0.4);
+    roundRect(ctx, progressBarX, progressBarY, progressBarWidth, progressBarHeight, progressBarHeight / 2);
+    ctx.fill();
+    
+    const progressGradient = ctx.createLinearGradient(progressBarX, 0, progressBarX + progressBarWidth, 0);
+    progressGradient.addColorStop(0, style.primaryColor);
+    progressGradient.addColorStop(1, style.progressBarColor);
+    ctx.fillStyle = progressGradient;
+    roundRect(ctx, progressBarX, progressBarY, progressWidth, progressBarHeight, progressBarHeight / 2);
+    ctx.fill();
+    
+    const shimmerX = progressBarX + ((frame / frameCount) * progressBarWidth * 1.5) - 50;
+    if (shimmerX < progressBarX + progressWidth && shimmerX > progressBarX - 30) {
+      const shimmerGradient = ctx.createLinearGradient(shimmerX, 0, shimmerX + 60, 0);
+      shimmerGradient.addColorStop(0, 'rgba(255, 255, 255, 0)');
+      shimmerGradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.3)');
+      shimmerGradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+      ctx.fillStyle = shimmerGradient;
+      ctx.save();
+      roundRect(ctx, progressBarX, progressBarY, progressWidth, progressBarHeight, progressBarHeight / 2);
+      ctx.clip();
+      ctx.fillRect(shimmerX, progressBarY, 60, progressBarHeight);
+      ctx.restore();
+    }
+    
+    const isLightStyle = style.id === 2 || style.id === 3 || style.id === 4;
+    ctx.fillStyle = isLightStyle ? '#4A4A4A' : '#FFFFFF';
+    ctx.font = 'bold 12px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`${progress.percentage}%`, progressBarX + progressBarWidth / 2, progressBarY + progressBarHeight / 2);
+    
+    ctx.fillStyle = style.secondaryColor;
+    ctx.font = '13px Arial';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    ctx.fillText(`Voz: ${formatTime(userLevel.totalVoiceTime)}  |  Musica: ${formatTime(userLevel.totalMusicTime)}`, 160, 160);
+    
+    ctx.fillStyle = style.secondaryColor;
+    ctx.font = '12px Arial';
+    ctx.textAlign = 'right';
+    ctx.fillText(style.name, width - 30, 165);
+    
+    const imageData = ctx.getImageData(0, 0, width, height);
+    const { data } = imageData;
+    
+    const rgbaData = new Uint8Array(width * height * 4);
+    for (let i = 0; i < data.length; i++) {
+      rgbaData[i] = data[i];
+    }
+    
+    const palette = quantize(rgbaData, 256);
+    const index = applyPalette(rgbaData, palette);
+    
+    gif.writeFrame(index, width, height, { palette, delay });
+  }
+  
+  gif.finish();
+  
+  return Buffer.from(gif.bytes());
 }
 
 function drawAvatarFallback(ctx: CanvasRenderingContext2D, style: RankcardStyle, username: string) {

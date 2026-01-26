@@ -1,6 +1,6 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, AttachmentBuilder } from 'discord.js';
 import { Command, UserLevel, ExtendedClient } from '../types';
-import { generateRankcardImage } from '../systems/rankcardGenerator';
+import { generateAnimatedRankcard } from '../systems/rankcardGenerator';
 
 export const levelCommand: Command = {
   data: new SlashCommandBuilder()
@@ -45,14 +45,14 @@ export const levelCommand: Command = {
     const avatarUrl = targetUser.displayAvatarURL({ extension: 'png', size: 256 });
     
     try {
-      const imageBuffer = await generateRankcardImage(
+      const imageBuffer = await generateAnimatedRankcard(
         userLevel,
         targetUser.username,
         avatarUrl,
         rank
       );
       
-      const attachment = new AttachmentBuilder(imageBuffer, { name: 'rankcard.png' });
+      const attachment = new AttachmentBuilder(imageBuffer, { name: 'rankcard.gif' });
       
       await interaction.editReply({ files: [attachment] });
     } catch (error) {

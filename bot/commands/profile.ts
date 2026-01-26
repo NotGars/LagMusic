@@ -1,7 +1,7 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, AttachmentBuilder, EmbedBuilder } from 'discord.js';
 import { Command, UserLevel, RANKCARD_STYLES, ExtendedClient } from '../types';
 import { config } from '../config';
-import { generateRankcardImage, calculateProgress, formatTime, getRankcardStyle } from '../systems/rankcardGenerator';
+import { generateAnimatedRankcard, calculateProgress, formatTime, getRankcardStyle } from '../systems/rankcardGenerator';
 
 export const profileCommand: Command = {
   data: new SlashCommandBuilder()
@@ -46,14 +46,14 @@ export const profileCommand: Command = {
     const avatarUrl = targetUser.displayAvatarURL({ extension: 'png', size: 256 });
     
     try {
-      const imageBuffer = await generateRankcardImage(
+      const imageBuffer = await generateAnimatedRankcard(
         userLevel,
         targetUser.username,
         avatarUrl,
         rank
       );
       
-      const attachment = new AttachmentBuilder(imageBuffer, { name: 'profile.png' });
+      const attachment = new AttachmentBuilder(imageBuffer, { name: 'profile.gif' });
       
       const style = getRankcardStyle(userLevel.selectedRankcard);
       const lockedCards = RANKCARD_STYLES.filter(s => userLevel!.level < s.unlockLevel);
@@ -70,7 +70,7 @@ export const profileCommand: Command = {
       const embed = new EmbedBuilder()
         .setColor(config.colors.level)
         .setDescription(description)
-        .setImage('attachment://profile.png')
+        .setImage('attachment://profile.gif')
         .setFooter({ text: 'Usa /rankcard para cambiar tu estilo de tarjeta' })
         .setTimestamp();
       
