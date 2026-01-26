@@ -1,4 +1,6 @@
-import { createCanvas, loadImage, CanvasRenderingContext2D } from 'canvas';
+import { createCanvas, loadImage, SKRSContext2D } from '@napi-rs/canvas';
+
+type CanvasRenderingContext2D = SKRSContext2D;
 import { UserLevel, RankcardStyle, RANKCARD_STYLES } from '../types';
 import { xpForLevel } from '../config';
 
