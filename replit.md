@@ -101,3 +101,10 @@ This bot is designed to be deployed on Render (not Replit), using the bot/ direc
 - **January 2026**: Added staff commands for level management
   - /setlevel, /addxp, /removexp commands for staff role
   - Switched from 'canvas' to '@napi-rs/canvas' for deployment compatibility
+- **January 2026**: Migrated audio system to Cobalt API for improved stability
+  - Replaced play-dl with Cobalt API (multiple instances with automatic fallback)
+  - Audio transcoding via FFmpeg for reliable Discord playback
+  - Automatic retry system (up to 2 retries with backoff) for failed playbacks
+  - Instance reliability scoring with cooldown for failed instances
+  - Proper process cleanup on track end, skip, stop, and bot shutdown
+  - No Spotify credentials required - Cobalt extracts audio directly
