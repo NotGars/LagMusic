@@ -1,7 +1,6 @@
-import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder, GuildMember } from 'discord.js';
+import { SlashCommandBuilder, ChatInputCommandInteraction, AttachmentBuilder } from 'discord.js';
 import { Command, UserLevel, ExtendedClient } from '../types';
-import { config, xpForLevel } from '../config';
-import { calculateProgress, formatTime } from '../systems/rankcardGenerator';
+import { generateRankcardImage } from '../systems/rankcardGenerator';
 
 export const levelCommand: Command = {
   data: new SlashCommandBuilder()
@@ -14,9 +13,10 @@ export const levelCommand: Command = {
     ),
   
   async execute(interaction: ChatInputCommandInteraction) {
+    await interaction.deferReply();
+    
     const client = interaction.client as ExtendedClient;
     const targetUser = interaction.options.getUser('usuario') || interaction.user;
-    const member = interaction.guild?.members.cache.get(targetUser.id);
     
     const userKey = `${interaction.guildId}-${targetUser.id}`;
     let userLevel = client.userLevels.get(userKey);
@@ -36,46 +36,28 @@ export const levelCommand: Command = {
       client.userLevels.set(userKey, userLevel);
     }
     
-    const progress = calculateProgress(userLevel.xp, userLevel.level);
-    const progressBar = createProgressBar(progress.percentage);
-    
     const allUsers = Array.from(client.userLevels.entries())
       .filter(([key]) => key.startsWith(interaction.guildId!))
       .sort((a, b) => b[1].xp - a[1].xp);
     
-    const rank = allUsers.findIndex(([key]) => key === userKey) + 1;
+    const rank = allUsers.findIndex(([key]) => key === userKey) + 1 || allUsers.length + 1;
     
-    const embed = new EmbedBuilder()
-      .setColor(config.colors.level)
-      .setTitle(`${config.emojis.level} Nivel de ${targetUser.username}`)
-      .setThumbnail(targetUser.displayAvatarURL({ size: 128 }))
-      .addFields(
-        { name: '🏆 Rango', value: `#${rank || 'N/A'}`, inline: true },
-        { name: '📊 Nivel', value: `${userLevel.level}`, inline: true },
-        { name: '✨ XP Total', value: `${userLevel.xp.toLocaleString()}`, inline: true },
-        { 
-          name: '📈 Progreso al siguiente nivel',
-          value: `${progressBar}\n${progress.current.toLocaleString()} / ${progress.needed.toLocaleString()} XP (${progress.percentage}%)`,
-          inline: false
-        },
-        {
-          name: '📊 Estadísticas',
-          value: [
-            `🎧 Tiempo en voz: **${formatTime(userLevel.totalVoiceTime)}**`,
-            `🎵 Tiempo escuchando: **${formatTime(userLevel.totalMusicTime)}**`,
-          ].join('\n'),
-          inline: false
-        }
-      )
-      .setFooter({ text: 'Gana XP estando en canales de voz y escuchando música!' })
-      .setTimestamp();
+    const avatarUrl = targetUser.displayAvatarURL({ extension: 'png', size: 256 });
     
-    await interaction.reply({ embeds: [embed] });
+    try {
+      const imageBuffer = await generateRankcardImage(
+        userLevel,
+        targetUser.username,
+        avatarUrl,
+        rank
+      );
+      
+      const attachment = new AttachmentBuilder(imageBuffer, { name: 'rankcard.png' });
+      
+      await interaction.editReply({ files: [attachment] });
+    } catch (error) {
+      console.error('Error generating rankcard image:', error);
+      await interaction.editReply({ content: 'Hubo un error generando tu tarjeta de nivel. Intenta de nuevo.' });
+    }
   }
 };
-
-function createProgressBar(percentage: number): string {
-  const filled = Math.floor(percentage / 5);
-  const empty = 20 - filled;
-  return `[${'▰'.repeat(filled)}${'▱'.repeat(empty)}]`;
-}

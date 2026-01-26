@@ -1,7 +1,7 @@
-import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder, AttachmentBuilder } from 'discord.js';
+import { SlashCommandBuilder, ChatInputCommandInteraction, AttachmentBuilder, EmbedBuilder } from 'discord.js';
 import { Command, UserLevel, RANKCARD_STYLES, ExtendedClient } from '../types';
 import { config } from '../config';
-import { generateRankcardSVG, calculateProgress, formatTime, getRankcardStyle } from '../systems/rankcardGenerator';
+import { generateRankcardImage, calculateProgress, formatTime, getRankcardStyle } from '../systems/rankcardGenerator';
 
 export const profileCommand: Command = {
   data: new SlashCommandBuilder()
@@ -43,49 +43,41 @@ export const profileCommand: Command = {
     
     const rank = allUsers.findIndex(([key]) => key === userKey) + 1 || allUsers.length + 1;
     
-    const avatarUrl = targetUser.displayAvatarURL({ extension: 'png', size: 128 });
+    const avatarUrl = targetUser.displayAvatarURL({ extension: 'png', size: 256 });
     
-    const svg = generateRankcardSVG(
-      userLevel,
-      targetUser.username,
-      avatarUrl,
-      rank
-    );
-    
-    const style = getRankcardStyle(userLevel.selectedRankcard);
-    const progress = calculateProgress(userLevel.xp, userLevel.level);
-    
-    const embed = new EmbedBuilder()
-      .setColor(config.colors.level)
-      .setTitle(`🎵 Perfil de ${targetUser.username}`)
-      .setThumbnail(avatarUrl)
-      .addFields(
-        { name: '🏆 Rango', value: `#${rank}`, inline: true },
-        { name: '📊 Nivel', value: `${userLevel.level}`, inline: true },
-        { name: '✨ XP Total', value: `${userLevel.xp.toLocaleString()}`, inline: true },
-        { name: '📈 Progreso', value: `${progress.percentage}% al nivel ${userLevel.level + 1}`, inline: true },
-        { name: '🎧 Tiempo en Voz', value: formatTime(userLevel.totalVoiceTime), inline: true },
-        { name: '🎵 Tiempo Música', value: formatTime(userLevel.totalMusicTime), inline: true },
-        { name: '🎨 Rankcard', value: `${style.name}`, inline: true }
-      )
-      .setDescription(`*${style.description}*`)
-      .setFooter({ text: `Usa /rankcard para cambiar tu estilo de tarjeta` })
-      .setTimestamp();
-    
-    const unlockedCards = RANKCARD_STYLES.filter(s => userLevel!.level >= s.unlockLevel);
-    const lockedCards = RANKCARD_STYLES.filter(s => userLevel!.level < s.unlockLevel);
-    
-    if (lockedCards.length > 0) {
-      const lockedText = lockedCards
-        .map(s => `${s.name} (Nivel ${s.unlockLevel})`)
-        .join(', ');
-      embed.addFields({
-        name: '🔒 Próximas tarjetas',
-        value: lockedText,
-        inline: false
-      });
+    try {
+      const imageBuffer = await generateRankcardImage(
+        userLevel,
+        targetUser.username,
+        avatarUrl,
+        rank
+      );
+      
+      const attachment = new AttachmentBuilder(imageBuffer, { name: 'profile.png' });
+      
+      const style = getRankcardStyle(userLevel.selectedRankcard);
+      const lockedCards = RANKCARD_STYLES.filter(s => userLevel!.level < s.unlockLevel);
+      
+      let description = `*${style.description}*`;
+      
+      if (lockedCards.length > 0) {
+        const lockedText = lockedCards
+          .map(s => `**${s.name}** (Nivel ${s.unlockLevel})`)
+          .join(' | ');
+        description += `\n\nProximas tarjetas: ${lockedText}`;
+      }
+      
+      const embed = new EmbedBuilder()
+        .setColor(config.colors.level)
+        .setDescription(description)
+        .setImage('attachment://profile.png')
+        .setFooter({ text: 'Usa /rankcard para cambiar tu estilo de tarjeta' })
+        .setTimestamp();
+      
+      await interaction.editReply({ embeds: [embed], files: [attachment] });
+    } catch (error) {
+      console.error('Error generating profile image:', error);
+      await interaction.editReply({ content: 'Hubo un error generando tu perfil. Intenta de nuevo.' });
     }
-    
-    await interaction.editReply({ embeds: [embed] });
   }
 };

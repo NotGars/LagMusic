@@ -1,14 +1,16 @@
-import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder } from 'discord.js';
+import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder, AttachmentBuilder } from 'discord.js';
 import { Command, ExtendedClient } from '../types';
 import { config } from '../config';
-import { formatTime } from '../systems/rankcardGenerator';
+import { generateLeaderboardImage } from '../systems/rankcardGenerator';
 
 export const leaderboardCommand: Command = {
   data: new SlashCommandBuilder()
     .setName('leaderboard')
-    .setDescription('Muestra el top 10 de usuarios con más nivel'),
+    .setDescription('Muestra el top 10 de usuarios con mas nivel'),
   
   async execute(interaction: ChatInputCommandInteraction) {
+    await interaction.deferReply();
+    
     const client = interaction.client as ExtendedClient;
     const guildId = interaction.guildId!;
     
@@ -22,58 +24,69 @@ export const leaderboardCommand: Command = {
       .slice(0, 10);
     
     if (guildUsers.length === 0) {
-      await interaction.reply({
+      await interaction.editReply({
         embeds: [
           new EmbedBuilder()
             .setColor(config.colors.warning)
-            .setDescription('📊 No hay usuarios con XP todavía. Únete a un canal de voz para empezar!')
-        ],
-        ephemeral: true
+            .setDescription('No hay usuarios con XP todavia. Unite a un canal de voz para empezar!')
+        ]
       });
       return;
     }
     
-    const medals = ['🥇', '🥈', '🥉'];
-    
-    const leaderboardText = await Promise.all(
-      guildUsers.map(async (userData, index) => {
-        try {
-          const user = await client.users.fetch(userData.discordId);
-          const medal = medals[index] || `**${index + 1}.**`;
-          const totalTime = userData.totalVoiceTime + userData.totalMusicTime;
-          
-          return `${medal} **${user.username}**\n` +
-                 `   Nivel ${userData.level} • ${userData.xp.toLocaleString()} XP • ${formatTime(totalTime)}`;
-        } catch {
-          return `**${index + 1}.** Usuario desconocido - Nivel ${userData.level}`;
-        }
-      })
-    );
-    
-    const requestingUserKey = `${guildId}-${interaction.user.id}`;
-    const userRank = guildUsers.findIndex(u => u.key === requestingUserKey) + 1;
-    let userRankText = '';
-    
-    if (userRank > 0) {
-      userRankText = `\n\n👤 Tu posición: **#${userRank}**`;
-    } else {
-      const allUsers = Array.from(client.userLevels.entries())
+    try {
+      const usersData = await Promise.all(
+        guildUsers.map(async (userData, index) => {
+          try {
+            const user = await client.users.fetch(userData.discordId);
+            return {
+              username: user.username,
+              avatarUrl: user.displayAvatarURL({ extension: 'png', size: 128 }),
+              level: userData.level,
+              xp: userData.xp,
+              rank: index + 1
+            };
+          } catch {
+            return {
+              username: 'Usuario Desconocido',
+              avatarUrl: '',
+              level: userData.level,
+              xp: userData.xp,
+              rank: index + 1
+            };
+          }
+        })
+      );
+      
+      const guildName = interaction.guild?.name || 'Servidor';
+      const guildIconUrl = interaction.guild?.iconURL({ extension: 'png', size: 128 }) || null;
+      
+      const imageBuffer = await generateLeaderboardImage(usersData, guildName, guildIconUrl);
+      
+      const attachment = new AttachmentBuilder(imageBuffer, { name: 'leaderboard.png' });
+      
+      const requestingUserKey = `${guildId}-${interaction.user.id}`;
+      const allUsersForRank = Array.from(client.userLevels.entries())
         .filter(([key]) => key.startsWith(guildId))
         .sort((a, b) => b[1].xp - a[1].xp);
-      const fullRank = allUsers.findIndex(([key]) => key === requestingUserKey) + 1;
+      const fullRank = allUsersForRank.findIndex(([key]) => key === requestingUserKey) + 1;
+      
+      let description = '';
       if (fullRank > 0) {
-        userRankText = `\n\n👤 Tu posición: **#${fullRank}**`;
+        description = `Tu posicion: **#${fullRank}**`;
       }
+      
+      const embed = new EmbedBuilder()
+        .setColor(config.colors.level)
+        .setDescription(description)
+        .setImage('attachment://leaderboard.png')
+        .setFooter({ text: `${interaction.guild?.name} - Top 10 usuarios` })
+        .setTimestamp();
+      
+      await interaction.editReply({ embeds: [embed], files: [attachment] });
+    } catch (error) {
+      console.error('Error generating leaderboard image:', error);
+      await interaction.editReply({ content: 'Hubo un error generando la tabla de clasificaciones. Intenta de nuevo.' });
     }
-    
-    const embed = new EmbedBuilder()
-      .setColor(config.colors.level)
-      .setTitle(`${config.emojis.trophy} Tabla de Clasificaciones`)
-      .setDescription(leaderboardText.join('\n\n') + userRankText)
-      .setThumbnail(interaction.guild?.iconURL() || '')
-      .setFooter({ text: `${interaction.guild?.name} • Top 10 usuarios` })
-      .setTimestamp();
-    
-    await interaction.reply({ embeds: [embed] });
   }
 };
