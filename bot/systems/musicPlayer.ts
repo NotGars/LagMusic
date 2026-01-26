@@ -21,7 +21,6 @@ import {
   getSpotifyTrackInfo,
   getSpotifyPlaylistTracks,
   getSpotifyAlbumTracks,
-  getSpotifyClient,
 } from './spotifyClient';
 
 // Initialize play-dl with cookies if available
@@ -238,10 +237,6 @@ export async function searchPlaylist(query: string, source: string, requestedBy:
   }
   
   if (isSpotifyUrl(query) || source.toLowerCase() === 'spotify') {
-    const spotify = await getSpotifyClient();
-    if (!spotify) {
-      return { error: 'Spotify no está configurado. Necesitas agregar SPOTIFY_CLIENT_ID y SPOTIFY_CLIENT_SECRET.' };
-    }
     
     let spotifyTracks: Awaited<ReturnType<typeof getSpotifyPlaylistTracks>> = [];
     
