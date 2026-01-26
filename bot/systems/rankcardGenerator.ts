@@ -1,6 +1,6 @@
-import { createCanvas, loadImage, registerFont, Canvas, CanvasRenderingContext2D } from 'canvas';
+import { createCanvas, loadImage, CanvasRenderingContext2D } from 'canvas';
 import { UserLevel, RankcardStyle, RANKCARD_STYLES } from '../types';
-import { xpForLevel, levelFromXp } from '../config';
+import { xpForLevel } from '../config';
 
 export function getAvailableRankcards(level: number): RankcardStyle[] {
   return RANKCARD_STYLES.filter(style => level >= style.unlockLevel);
@@ -55,25 +55,32 @@ function addGrainEffect(ctx: CanvasRenderingContext2D, width: number, height: nu
   ctx.putImageData(imageData, 0, 0);
 }
 
+function hexToRgba(hex: string, alpha: number): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 function drawLofiNightBackground(ctx: CanvasRenderingContext2D, width: number, height: number, style: RankcardStyle) {
   const gradient = ctx.createLinearGradient(0, 0, width, height);
-  gradient.addColorStop(0, '#1a1625');
+  gradient.addColorStop(0, style.backgroundColor);
   gradient.addColorStop(0.5, '#2d1f3d');
-  gradient.addColorStop(1, '#1a1625');
+  gradient.addColorStop(1, style.backgroundColor);
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, width, height);
   
-  ctx.fillStyle = 'rgba(139, 69, 139, 0.1)';
+  ctx.fillStyle = hexToRgba(style.primaryColor, 0.1);
   ctx.beginPath();
   ctx.arc(width - 60, 40, 80, 0, Math.PI * 2);
   ctx.fill();
   
-  ctx.fillStyle = 'rgba(52, 73, 94, 0.15)';
+  ctx.fillStyle = hexToRgba(style.secondaryColor, 0.15);
   ctx.beginPath();
   ctx.arc(80, height - 30, 60, 0, Math.PI * 2);
   ctx.fill();
   
-  ctx.fillStyle = 'rgba(107, 76, 138, 0.08)';
+  ctx.fillStyle = hexToRgba(style.accentColor, 0.08);
   ctx.beginPath();
   ctx.arc(width / 2, height / 2, 100, 0, Math.PI * 2);
   ctx.fill();
@@ -81,12 +88,12 @@ function drawLofiNightBackground(ctx: CanvasRenderingContext2D, width: number, h
 
 function drawLofiMinimalBackground(ctx: CanvasRenderingContext2D, width: number, height: number, style: RankcardStyle) {
   const gradient = ctx.createLinearGradient(0, 0, 0, height);
-  gradient.addColorStop(0, '#F8F7F4');
-  gradient.addColorStop(1, '#E8E6E1');
+  gradient.addColorStop(0, style.backgroundColor);
+  gradient.addColorStop(1, hexToRgba(style.accentColor, 1));
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, width, height);
   
-  ctx.strokeStyle = 'rgba(180, 180, 170, 0.3)';
+  ctx.strokeStyle = hexToRgba(style.secondaryColor, 0.2);
   ctx.lineWidth = 1;
   for (let i = 0; i < 8; i++) {
     ctx.beginPath();
@@ -95,17 +102,17 @@ function drawLofiMinimalBackground(ctx: CanvasRenderingContext2D, width: number,
     ctx.stroke();
   }
   
-  ctx.fillStyle = 'rgba(200, 195, 185, 0.2)';
+  ctx.fillStyle = hexToRgba(style.secondaryColor, 0.15);
   ctx.fillRect(width - 80, 15, 60, 60);
   ctx.fillRect(width - 90, 100, 40, 40);
 }
 
 function drawLofiAnimeDeskBackground(ctx: CanvasRenderingContext2D, width: number, height: number, style: RankcardStyle) {
   const gradient = ctx.createLinearGradient(0, 0, width, height);
-  gradient.addColorStop(0, '#FFE8DC');
-  gradient.addColorStop(0.3, '#FFE4D6');
+  gradient.addColorStop(0, style.backgroundColor);
+  gradient.addColorStop(0.3, style.backgroundColor);
   gradient.addColorStop(0.7, '#FFF0E8');
-  gradient.addColorStop(1, '#FFE4D6');
+  gradient.addColorStop(1, style.backgroundColor);
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, width, height);
   
@@ -119,7 +126,7 @@ function drawLofiAnimeDeskBackground(ctx: CanvasRenderingContext2D, width: numbe
   ctx.fillRect(width - 75, 15, 12, 30);
   ctx.fillRect(width - 55, 25, 10, 18);
   
-  ctx.fillStyle = 'rgba(139, 195, 74, 0.4)';
+  ctx.fillStyle = hexToRgba(style.primaryColor, 0.4);
   ctx.beginPath();
   ctx.ellipse(35, height - 40, 15, 20, 0, 0, Math.PI * 2);
   ctx.fill();
@@ -133,7 +140,7 @@ function drawLofiAnimeDeskBackground(ctx: CanvasRenderingContext2D, width: numbe
   ctx.ellipse(40, height - 15, 25, 8, 0, 0, Math.PI * 2);
   ctx.fill();
   
-  ctx.fillStyle = 'rgba(245, 184, 171, 0.35)';
+  ctx.fillStyle = hexToRgba(style.secondaryColor, 0.35);
   ctx.beginPath();
   ctx.moveTo(width - 45, height - 50);
   ctx.lineTo(width - 25, height - 50);
@@ -191,38 +198,33 @@ export async function generateRankcardImage(
       addGrainEffect(ctx, width, height, 12);
   }
   
-  try {
-    const avatar = await loadImage(avatarUrl);
-    
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(85, 100, 55, 0, Math.PI * 2);
-    ctx.closePath();
-    
-    const avatarGradient = ctx.createLinearGradient(30, 45, 140, 155);
-    avatarGradient.addColorStop(0, style.primaryColor);
-    avatarGradient.addColorStop(1, style.secondaryColor);
-    ctx.strokeStyle = avatarGradient;
-    ctx.lineWidth = 4;
-    ctx.stroke();
-    
-    ctx.beginPath();
-    ctx.arc(85, 100, 50, 0, Math.PI * 2);
-    ctx.closePath();
-    ctx.clip();
-    ctx.drawImage(avatar, 35, 50, 100, 100);
-    ctx.restore();
-  } catch (error) {
-    ctx.fillStyle = style.primaryColor;
-    ctx.beginPath();
-    ctx.arc(85, 100, 50, 0, Math.PI * 2);
-    ctx.fill();
-    
-    ctx.fillStyle = style.textColor;
-    ctx.font = 'bold 40px Arial';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(username.charAt(0).toUpperCase(), 85, 100);
+  if (avatarUrl) {
+    try {
+      const avatar = await loadImage(avatarUrl);
+      
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(85, 100, 55, 0, Math.PI * 2);
+      ctx.closePath();
+      
+      const avatarGradient = ctx.createLinearGradient(30, 45, 140, 155);
+      avatarGradient.addColorStop(0, style.primaryColor);
+      avatarGradient.addColorStop(1, style.secondaryColor);
+      ctx.strokeStyle = avatarGradient;
+      ctx.lineWidth = 4;
+      ctx.stroke();
+      
+      ctx.beginPath();
+      ctx.arc(85, 100, 50, 0, Math.PI * 2);
+      ctx.closePath();
+      ctx.clip();
+      ctx.drawImage(avatar, 35, 50, 100, 100);
+      ctx.restore();
+    } catch {
+      drawAvatarFallback(ctx, style, username);
+    }
+  } else {
+    drawAvatarFallback(ctx, style, username);
   }
   
   ctx.fillStyle = style.textColor;
@@ -252,18 +254,19 @@ export async function generateRankcardImage(
   const progressBarHeight = 22;
   const progressWidth = Math.max(progressBarHeight, (progress.percentage / 100) * progressBarWidth);
   
-  ctx.fillStyle = style.id === 2 ? 'rgba(200, 195, 185, 0.4)' : 'rgba(0, 0, 0, 0.25)';
+  ctx.fillStyle = hexToRgba(style.accentColor, 0.4);
   roundRect(ctx, progressBarX, progressBarY, progressBarWidth, progressBarHeight, progressBarHeight / 2);
   ctx.fill();
   
   const progressGradient = ctx.createLinearGradient(progressBarX, 0, progressBarX + progressBarWidth, 0);
   progressGradient.addColorStop(0, style.primaryColor);
-  progressGradient.addColorStop(1, style.secondaryColor);
+  progressGradient.addColorStop(1, style.progressBarColor);
   ctx.fillStyle = progressGradient;
   roundRect(ctx, progressBarX, progressBarY, progressWidth, progressBarHeight, progressBarHeight / 2);
   ctx.fill();
   
-  ctx.fillStyle = style.id === 2 ? '#4A4A4A' : '#FFFFFF';
+  const isLightStyle = style.id === 2 || style.id === 3;
+  ctx.fillStyle = isLightStyle ? '#4A4A4A' : '#FFFFFF';
   ctx.font = 'bold 12px Arial';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
@@ -283,6 +286,19 @@ export async function generateRankcardImage(
   return canvas.toBuffer('image/png');
 }
 
+function drawAvatarFallback(ctx: CanvasRenderingContext2D, style: RankcardStyle, username: string) {
+  ctx.fillStyle = style.primaryColor;
+  ctx.beginPath();
+  ctx.arc(85, 100, 50, 0, Math.PI * 2);
+  ctx.fill();
+  
+  ctx.fillStyle = style.textColor;
+  ctx.font = 'bold 40px Arial';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(username.charAt(0).toUpperCase(), 85, 100);
+}
+
 export async function generateLeaderboardImage(
   users: Array<{ username: string; avatarUrl: string; level: number; xp: number; rank: number }>,
   guildName: string,
@@ -297,16 +313,18 @@ export async function generateLeaderboardImage(
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext('2d');
   
+  const style = RANKCARD_STYLES[0];
+  
   const gradient = ctx.createLinearGradient(0, 0, width, height);
-  gradient.addColorStop(0, '#1a1625');
+  gradient.addColorStop(0, style.backgroundColor);
   gradient.addColorStop(0.5, '#2d1f3d');
-  gradient.addColorStop(1, '#1a1625');
+  gradient.addColorStop(1, style.backgroundColor);
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, width, height);
   
   addGrainEffect(ctx, width, height, 8);
   
-  ctx.fillStyle = 'rgba(155, 89, 182, 0.1)';
+  ctx.fillStyle = hexToRgba(style.primaryColor, 0.1);
   ctx.beginPath();
   ctx.arc(width - 50, 40, 100, 0, Math.PI * 2);
   ctx.fill();
@@ -324,13 +342,13 @@ export async function generateLeaderboardImage(
     } catch {}
   }
   
-  ctx.fillStyle = '#E8E6F0';
+  ctx.fillStyle = style.textColor;
   ctx.font = 'bold 24px Arial';
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
   ctx.fillText('Tabla de Clasificaciones', guildIconUrl ? 85 : 25, 35);
   
-  ctx.fillStyle = '#9B59B6';
+  ctx.fillStyle = style.primaryColor;
   ctx.font = '14px Arial';
   ctx.fillText(guildName, guildIconUrl ? 85 : 25, 58);
   
@@ -350,53 +368,67 @@ export async function generateLeaderboardImage(
       ctx.arc(40, y + (userRowHeight - 5) / 2, 15, 0, Math.PI * 2);
       ctx.fill();
       
-      ctx.fillStyle = '#1a1625';
+      ctx.fillStyle = style.backgroundColor;
       ctx.font = 'bold 14px Arial';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(`${i + 1}`, 40, y + (userRowHeight - 5) / 2);
     } else {
-      ctx.fillStyle = '#888888';
+      ctx.fillStyle = style.secondaryColor;
       ctx.font = 'bold 16px Arial';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(`${i + 1}`, 40, y + (userRowHeight - 5) / 2);
     }
     
-    try {
-      const avatar = await loadImage(user.avatarUrl);
-      ctx.save();
-      ctx.beginPath();
-      ctx.arc(85, y + (userRowHeight - 5) / 2, 18, 0, Math.PI * 2);
-      ctx.closePath();
-      ctx.clip();
-      ctx.drawImage(avatar, 67, y + (userRowHeight - 5) / 2 - 18, 36, 36);
-      ctx.restore();
-    } catch {
-      ctx.fillStyle = '#9B59B6';
-      ctx.beginPath();
-      ctx.arc(85, y + (userRowHeight - 5) / 2, 18, 0, Math.PI * 2);
-      ctx.fill();
+    if (user.avatarUrl) {
+      try {
+        const avatar = await loadImage(user.avatarUrl);
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(85, y + (userRowHeight - 5) / 2, 18, 0, Math.PI * 2);
+        ctx.closePath();
+        ctx.clip();
+        ctx.drawImage(avatar, 67, y + (userRowHeight - 5) / 2 - 18, 36, 36);
+        ctx.restore();
+      } catch {
+        drawLeaderboardAvatarFallback(ctx, style, user.username, 85, y + (userRowHeight - 5) / 2);
+      }
+    } else {
+      drawLeaderboardAvatarFallback(ctx, style, user.username, 85, y + (userRowHeight - 5) / 2);
     }
     
-    ctx.fillStyle = '#E8E6F0';
+    ctx.fillStyle = style.textColor;
     ctx.font = 'bold 16px Arial';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     const displayName = user.username.length > 16 ? user.username.substring(0, 13) + '...' : user.username;
     ctx.fillText(displayName, 115, y + (userRowHeight - 5) / 2 - 8);
     
-    ctx.fillStyle = '#9B59B6';
+    ctx.fillStyle = style.primaryColor;
     ctx.font = '12px Arial';
     ctx.fillText(`Nivel ${user.level}`, 115, y + (userRowHeight - 5) / 2 + 10);
     
-    ctx.fillStyle = '#3498DB';
+    ctx.fillStyle = style.secondaryColor;
     ctx.font = 'bold 14px Arial';
     ctx.textAlign = 'right';
     ctx.fillText(`${user.xp.toLocaleString()} XP`, width - 30, y + (userRowHeight - 5) / 2);
   }
   
   return canvas.toBuffer('image/png');
+}
+
+function drawLeaderboardAvatarFallback(ctx: CanvasRenderingContext2D, style: RankcardStyle, username: string, x: number, y: number) {
+  ctx.fillStyle = style.primaryColor;
+  ctx.beginPath();
+  ctx.arc(x, y, 18, 0, Math.PI * 2);
+  ctx.fill();
+  
+  ctx.fillStyle = style.textColor;
+  ctx.font = 'bold 14px Arial';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(username.charAt(0).toUpperCase(), x, y);
 }
 
 export function generateRankcardSVG(
