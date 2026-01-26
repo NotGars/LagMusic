@@ -104,19 +104,27 @@ async function registerCommands() {
   const guildId = process.env.GUILD_ID;
   
   try {
+    console.log('🔄 Limpiando comandos duplicados...');
+    
+    await rest.put(Routes.applicationCommands(config.clientId), { body: [] });
+    console.log('✅ Comandos globales eliminados');
+    
+    if (guildId) {
+      await rest.put(Routes.applicationGuildCommands(config.clientId, guildId), { body: [] });
+      console.log(`✅ Comandos del servidor ${guildId} eliminados`);
+    }
+    
     console.log('🔄 Registrando comandos slash...');
     
     const commandData = commands.map(cmd => cmd.data.toJSON());
     
     if (guildId) {
-      // Guild commands - instant update for testing
       await rest.put(
         Routes.applicationGuildCommands(config.clientId, guildId),
         { body: commandData },
       );
       console.log(`✅ Comandos registrados en servidor ${guildId}!`);
     } else {
-      // Global commands - takes up to 1 hour
       await rest.put(
         Routes.applicationCommands(config.clientId),
         { body: commandData },

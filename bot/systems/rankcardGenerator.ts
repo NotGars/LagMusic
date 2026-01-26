@@ -240,47 +240,61 @@ function drawLofiStudyNightBackground(ctx: CanvasRenderingContext2D, width: numb
 
 function drawLofiNostalgicMemoryBackground(ctx: CanvasRenderingContext2D, width: number, height: number, style: RankcardStyle) {
   const gradient = ctx.createLinearGradient(0, 0, width, height);
-  gradient.addColorStop(0, '#2A2440');
-  gradient.addColorStop(0.3, '#3D3560');
-  gradient.addColorStop(0.6, '#2E2850');
-  gradient.addColorStop(1, '#1E1830');
+  gradient.addColorStop(0, '#4A3C28');
+  gradient.addColorStop(0.3, '#5C4A32');
+  gradient.addColorStop(0.6, '#3D3225');
+  gradient.addColorStop(1, '#2A2318');
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, width, height);
   
-  ctx.fillStyle = 'rgba(180, 150, 100, 0.08)';
+  ctx.fillStyle = 'rgba(200, 170, 120, 0.12)';
   ctx.fillRect(0, 0, width, height);
   
-  ctx.fillStyle = 'rgba(100, 80, 150, 0.2)';
+  ctx.fillStyle = 'rgba(255, 200, 100, 0.25)';
   ctx.beginPath();
-  ctx.arc(width - 80, 50, 60, 0, Math.PI * 2);
+  ctx.arc(width - 60, 45, 50, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(255, 220, 150, 0.15)';
+  ctx.beginPath();
+  ctx.arc(width - 60, 45, 70, 0, Math.PI * 2);
   ctx.fill();
   
-  ctx.fillStyle = 'rgba(150, 120, 180, 0.15)';
+  ctx.fillStyle = 'rgba(180, 140, 80, 0.2)';
   ctx.beginPath();
-  ctx.arc(100, height - 40, 50, 0, Math.PI * 2);
+  ctx.arc(80, height - 35, 45, 0, Math.PI * 2);
   ctx.fill();
   
-  ctx.fillStyle = 'rgba(200, 180, 220, 0.06)';
-  for (let i = 0; i < 8; i++) {
+  ctx.fillStyle = 'rgba(220, 180, 120, 0.08)';
+  for (let i = 0; i < 12; i++) {
     const x = Math.random() * width;
     const y = Math.random() * height;
     ctx.beginPath();
-    ctx.arc(x, y, 20 + Math.random() * 30, 0, Math.PI * 2);
+    ctx.arc(x, y, 15 + Math.random() * 25, 0, Math.PI * 2);
     ctx.fill();
   }
   
-  ctx.fillStyle = 'rgba(180, 160, 200, 0.1)';
-  ctx.beginPath();
-  ctx.moveTo(width - 60, height - 50);
-  ctx.lineTo(width - 40, height - 80);
-  ctx.lineTo(width - 50, height - 50);
-  ctx.closePath();
-  ctx.fill();
-  ctx.fillRect(width - 55, height - 50, 10, 40);
+  ctx.fillStyle = 'rgba(100, 80, 60, 0.4)';
+  ctx.fillRect(width - 100, height - 55, 80, 45);
+  ctx.fillStyle = 'rgba(60, 50, 40, 0.5)';
+  ctx.fillRect(width - 95, height - 50, 70, 35);
+  ctx.fillStyle = 'rgba(150, 120, 80, 0.3)';
+  ctx.fillRect(width - 93, height - 48, 66, 31);
   
-  ctx.fillStyle = 'rgba(220, 200, 150, 0.1)';
-  ctx.fillRect(20, height - 45, 35, 5);
-  ctx.fillRect(25, height - 55, 25, 10);
+  ctx.fillStyle = 'rgba(200, 160, 100, 0.35)';
+  ctx.fillRect(25, height - 50, 45, 6);
+  ctx.fillRect(30, height - 60, 35, 10);
+  ctx.fillRect(35, height - 72, 25, 12);
+  
+  ctx.fillStyle = 'rgba(180, 150, 100, 0.15)';
+  for (let i = 0; i < 6; i++) {
+    ctx.beginPath();
+    ctx.moveTo(0, i * 40);
+    ctx.lineTo(width, i * 40 + 20);
+    ctx.lineTo(width, i * 40 + 22);
+    ctx.lineTo(0, i * 40 + 2);
+    ctx.closePath();
+    ctx.fill();
+  }
 }
 
 function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number) {
