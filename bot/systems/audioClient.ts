@@ -1,8 +1,6 @@
 /**
  * Sistema de audio para LagMusic - compatible con Render.
- * Fuente primaria: Piped API (URLs proxy estables).
- * Fallback: Cobalt API.
- * Sin dependencias de play-dl, ytdl-core ni cookies.
+ * Múltiples fuentes: Piped, Cobalt, Invidious. Sin play-dl/ytdl/cookies.
  */
 
 import { createRequire } from 'node:module';
@@ -19,11 +17,31 @@ try {
   ffmpegPath = 'ffmpeg';
 }
 
-const PIPED_API = 'https://pipedapi.kavin.rocks';
-const COBALT_API = 'https://api.cobalt.tools';
-const REQUEST_TIMEOUT = 15000;
-const USER_AGENT = 'LagMusic/1.0 (Discord Bot; +https://github.com)';
+const REQUEST_TIMEOUT = 18000;
+const USER_AGENT =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 const activeProcesses = new Set<ChildProcess>();
+
+const PIPED_INSTANCES = [
+  'https://pipedapi.kavin.rocks',
+  'https://pipedapi.tokhmi.xyz',
+  'https://pipedapi.moomoo.me',
+  'https://pipedapi.syncpundit.io',
+  'https://api-piped.mha.fi',
+];
+
+const COBALT_INSTANCES = [
+  'https://api.cobalt.tools',
+  'https://cobalt-api.hyper.lol',
+  'https://api.cobalt.lol',
+  'https://cobalt.api.timelessnesses.me',
+];
+
+const INVIDIOUS_INSTANCES = [
+  'https://api.invidious.io',
+  'https://invidious.flokinet.to',
+  'https://invidious.nerdvpn.de',
+];
 
 function extractVideoId(url: string): string | null {
   const patterns = [
@@ -37,6 +55,10 @@ function extractVideoId(url: string): string | null {
   return null;
 }
 
+function normalizeYoutubeUrl(url: string, videoId: string): string {
+  return `https://www.youtube.com/watch?v=${videoId}`;
+}
+
 async function fetchWithTimeout(
   url: string,
   options: RequestInit,
@@ -44,75 +66,161 @@ async function fetchWithTimeout(
 ): Promise<Response> {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), ms);
+  const headers = {
+    ...(options.headers && typeof options.headers === 'object'
+      ? (options.headers as Record<string, string>)
+      : {}),
+    'User-Agent': USER_AGENT,
+    Accept: 'application/json',
+  };
   try {
-    return await fetch(url, { ...options, signal: ctrl.signal });
+    return await fetch(url, {
+      ...options,
+      signal: ctrl.signal,
+      headers,
+    });
   } finally {
     clearTimeout(t);
   }
 }
 
-/** Obtener URL de audio vía Piped API (proxy estable). */
-async function getAudioUrlPiped(videoId: string): Promise<string | null> {
-  try {
-    const res = await fetchWithTimeout(
-      `${PIPED_API}/streams/${videoId}`,
-      { headers: { Accept: 'application/json', 'User-Agent': USER_AGENT } },
-      REQUEST_TIMEOUT
-    );
-    if (!res.ok) return null;
-    const data = await res.json();
-    const streams = data?.audioStreams;
-    if (!Array.isArray(streams) || streams.length === 0) return null;
-    const withBitrate = streams.filter((s: any) => (s.bitrate ?? 0) > 0);
-    const list = withBitrate.length > 0 ? withBitrate : streams;
-    const best = list.reduce((a: any, b: any) =>
-      (b.bitrate ?? 0) > (a.bitrate ?? 0) ? b : a
-    );
-    const url = best?.url;
-    return typeof url === 'string' && url ? url : null;
-  } catch (e) {
-    console.error('[Audio] Piped error:', (e as Error).message);
-    return null;
+const log = (msg: string) => console.log('[Audio]', msg);
+const logErr = (msg: string) => console.error('[Audio]', msg);
+
+/** Piped: GET /streams/:videoId → audioStreams[].url */
+async function getAudioUrlPiped(
+  videoId: string
+): Promise<{ url: string; instance: string } | null> {
+  for (const base of PIPED_INSTANCES) {
+    try {
+      const res = await fetchWithTimeout(
+        `${base}/streams/${videoId}`,
+        {},
+        REQUEST_TIMEOUT
+      );
+      if (!res.ok) {
+        log(`Piped ${base}: HTTP ${res.status}`);
+        continue;
+      }
+      const data = await res.json();
+      const streams = data?.audioStreams;
+      if (!Array.isArray(streams) || streams.length === 0) {
+        log(`Piped ${base}: sin audioStreams`);
+        continue;
+      }
+      const withBitrate = streams.filter((s: any) => (s.bitrate ?? 0) > 0);
+      const list = withBitrate.length > 0 ? withBitrate : streams;
+      const best = list.reduce((a: any, b: any) =>
+        (b.bitrate ?? 0) > (a.bitrate ?? 0) ? b : a
+      );
+      const u = best?.url;
+      if (typeof u === 'string' && u) {
+        log(`Piped OK: ${base}`);
+        return { url: u, instance: base };
+      }
+    } catch (e: any) {
+      log(`Piped ${base}: ${e?.message || String(e)}`);
+    }
   }
+  return null;
 }
 
-/** Fallback: obtener URL de audio vía Cobalt API. */
-async function getAudioUrlCobalt(videoUrl: string): Promise<string | null> {
-  try {
-    const res = await fetchWithTimeout(
-      COBALT_API,
-      {
-        method: 'POST',
-        headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-          'User-Agent': USER_AGENT,
+/** Cobalt: POST con url de YouTube → stream/redirect url */
+async function getAudioUrlCobalt(
+  videoUrl: string
+): Promise<{ url: string; instance: string } | null> {
+  const body = {
+    url: videoUrl,
+    audioFormat: 'opus',
+    isAudioOnly: true,
+    aFormat: 'opus',
+    filenameStyle: 'basic',
+  };
+  for (const base of COBALT_INSTANCES) {
+    try {
+      const res = await fetchWithTimeout(
+        base,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
         },
-        body: JSON.stringify({
-          url: videoUrl,
-          audioFormat: 'opus',
-          isAudioOnly: true,
-          aFormat: 'opus',
-          filenameStyle: 'basic',
-        }),
-      },
-      REQUEST_TIMEOUT
-    );
-    if (!res.ok) return null;
-    const data = await res.json();
-    if (data?.status === 'stream' || data?.status === 'redirect') {
-      const u = data?.url;
-      return typeof u === 'string' && u ? u : null;
+        REQUEST_TIMEOUT
+      );
+      if (!res.ok) {
+        log(`Cobalt ${base}: HTTP ${res.status}`);
+        continue;
+      }
+      const data = await res.json();
+      if (data?.status === 'stream' || data?.status === 'redirect') {
+        const u = data?.url;
+        if (typeof u === 'string' && u) {
+          log(`Cobalt OK: ${base}`);
+          return { url: u, instance: base };
+        }
+      }
+      if (data?.status === 'picker' && Array.isArray(data?.urls) && data.urls.length > 0) {
+        const u = data.urls[0];
+        if (typeof u === 'string' && u) {
+          log(`Cobalt OK (picker): ${base}`);
+          return { url: u, instance: base };
+        }
+      }
+      log(`Cobalt ${base}: status=${data?.status} error=${data?.error?.code || data?.text || '?'}`);
+    } catch (e: any) {
+      log(`Cobalt ${base}: ${e?.message || String(e)}`);
     }
-    if (data?.status === 'picker' && Array.isArray(data?.urls) && data.urls.length > 0) {
-      const u = data.urls[0];
-      return typeof u === 'string' && u ? u : null;
-    }
-    return null;
-  } catch (e) {
-    console.error('[Audio] Cobalt error:', (e as Error).message);
-    return null;
   }
+  return null;
+}
+
+/** Invidious: GET /api/v1/videos/:id → adaptiveFormats (audio-only con url) */
+async function getAudioUrlInvidious(
+  videoId: string
+): Promise<{ url: string; instance: string } | null> {
+  for (const base of INVIDIOUS_INSTANCES) {
+    try {
+      const res = await fetchWithTimeout(
+        `${base}/api/v1/videos/${videoId}`,
+        {},
+        REQUEST_TIMEOUT
+      );
+      if (!res.ok) {
+        log(`Invidious ${base}: HTTP ${res.status}`);
+        continue;
+      }
+      const data = await res.json();
+      const formats = data?.adaptiveFormats;
+      if (!Array.isArray(formats)) {
+        log(`Invidious ${base}: sin adaptiveFormats`);
+        continue;
+      }
+      const audio = formats.filter(
+        (f: any) =>
+          typeof f?.url === 'string' &&
+          String(f?.type || '').startsWith('audio/')
+      );
+      if (audio.length === 0) {
+        log(`Invidious ${base}: sin formatos audio con url`);
+        continue;
+      }
+      const best = audio.reduce((a: any, b: any) => {
+        const ba = parseInt(String(b.bitrate || '0'), 10) || 0;
+        const aa = parseInt(String(a.bitrate || '0'), 10) || 0;
+        return ba > aa ? b : a;
+      });
+      let u = best?.url;
+      if (typeof u === 'string' && u) {
+        if (u.startsWith('//')) u = `https:${u}`;
+        else if (u.startsWith('/')) u = `${base.replace(/\/$/, '')}${u}`;
+        log(`Invidious OK: ${base}`);
+        return { url: u, instance: base };
+      }
+    } catch (e: any) {
+      log(`Invidious ${base}: ${e?.message || String(e)}`);
+    }
+  }
+  return null;
 }
 
 export interface AudioStreamResult {
@@ -122,41 +230,51 @@ export interface AudioStreamResult {
 
 function createFfmpegStream(audioUrl: string): AudioStreamResult | null {
   if (!ffmpegPath) {
-    console.error('[Audio] FFmpeg no disponible');
+    logErr('FFmpeg no disponible');
     return null;
   }
   const ff = spawn(ffmpegPath, [
-    '-reconnect', '1',
-    '-reconnect_streamed', '1',
-    '-reconnect_delay_max', '5',
-    '-user_agent', USER_AGENT,
-    '-i', audioUrl,
-    '-analyzeduration', '0',
-    '-loglevel', 'error',
-    '-f', 's16le',
-    '-ar', '48000',
-    '-ac', '2',
+    '-reconnect',
+    '1',
+    '-reconnect_streamed',
+    '1',
+    '-reconnect_delay_max',
+    '5',
+    '-user_agent',
+    USER_AGENT,
+    '-i',
+    audioUrl,
+    '-analyzeduration',
+    '0',
+    '-loglevel',
+    'error',
+    '-f',
+    's16le',
+    '-ar',
+    '48000',
+    '-ac',
+    '2',
     'pipe:1',
   ]);
   activeProcesses.add(ff);
   const out = new PassThrough();
   ff.stdout.pipe(out);
-  ff.stderr.on('data', (d) => console.error('[FFmpeg]', d.toString().trim()));
+  ff.stderr.on('data', (d) => logErr(`FFmpeg: ${d.toString().trim()}`));
   ff.on('error', (e) => {
     activeProcesses.delete(ff);
     out.destroy(e);
   });
   ff.on('close', (code) => {
     activeProcesses.delete(ff);
-    if (code !== 0 && code != null) {
-      console.log('[FFmpeg] exit code', code);
-    }
+    if (code !== 0 && code != null) log(`FFmpeg exit ${code}`);
     if (!out.destroyed) out.end();
   });
   const cleanup = () => {
     if (!ff.killed) {
       ff.kill('SIGTERM');
-      setTimeout(() => { if (!ff.killed) ff.kill('SIGKILL'); }, 1000);
+      setTimeout(() => {
+        if (!ff.killed) ff.kill('SIGKILL');
+      }, 1000);
     }
     activeProcesses.delete(ff);
     if (!out.destroyed) out.destroy();
@@ -165,34 +283,42 @@ function createFfmpegStream(audioUrl: string): AudioStreamResult | null {
 }
 
 /**
- * Obtiene un stream de audio listo para Discord a partir de una URL de YouTube.
- * Usa Piped primero y Cobalt como respaldo.
+ * Obtiene un stream de audio listo para Discord.
+ * Orden: Piped → Cobalt → Invidious. Múltiples instancias por fuente.
  */
-export async function getAudioStream(videoUrl: string): Promise<AudioStreamResult | null> {
+export async function getAudioStream(
+  videoUrl: string
+): Promise<AudioStreamResult | null> {
   const videoId = extractVideoId(videoUrl);
   if (!videoId) {
-    console.error('[Audio] URL de YouTube no válida:', videoUrl);
+    logErr(`URL de YouTube no válida: ${videoUrl}`);
+    return null;
+  }
+  const normalizedUrl = normalizeYoutubeUrl(videoUrl, videoId);
+
+  let result: { url: string; source: string } | null = null;
+
+  const piped = await getAudioUrlPiped(videoId);
+  if (piped) result = { url: piped.url, source: `Piped (${piped.instance})` };
+
+  if (!result) {
+    const cobalt = await getAudioUrlCobalt(normalizedUrl);
+    if (cobalt) result = { url: cobalt.url, source: `Cobalt (${cobalt.instance})` };
+  }
+
+  if (!result) {
+    const invidious = await getAudioUrlInvidious(videoId);
+    if (invidious)
+      result = { url: invidious.url, source: `Invidious (${invidious.instance})` };
+  }
+
+  if (!result) {
+    logErr('Todas las fuentes fallaron (Piped, Cobalt, Invidious)');
     return null;
   }
 
-  let audioUrl: string | null = null;
-  let source = '';
-
-  audioUrl = await getAudioUrlPiped(videoId);
-  if (audioUrl) source = 'Piped';
-
-  if (!audioUrl) {
-    audioUrl = await getAudioUrlCobalt(videoUrl);
-    if (audioUrl) source = 'Cobalt';
-  }
-
-  if (!audioUrl) {
-    console.error('[Audio] No se pudo obtener audio (Piped + Cobalt fallaron)');
-    return null;
-  }
-
-  console.log('[Audio] Reproduciendo vía', source);
-  return createFfmpegStream(audioUrl);
+  log(`Reproduciendo vía ${result.source}`);
+  return createFfmpegStream(result.url);
 }
 
 export function cleanupAllProcesses(): void {
