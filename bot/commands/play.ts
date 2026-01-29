@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder, GuildMember, MessageFlags } from 'discord.js';
+import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder, GuildMember } from 'discord.js';
 import { Command, ExtendedClient } from '../types';
 import { config } from '../config';
 import { connectToVoice, searchAndAddTrack, searchPlaylist, playTrack, getOrCreateQueue } from '../systems/musicPlayer';
@@ -19,22 +19,21 @@ export const playCommand: Command = {
     ),
   
   async execute(interaction: ChatInputCommandInteraction) {
+    await interaction.deferReply();
+    
     const member = interaction.member as GuildMember;
     const voiceChannel = member.voice.channel;
     
     if (!voiceChannel) {
-      await interaction.reply({
+      await interaction.editReply({
         embeds: [
           new EmbedBuilder()
             .setColor(config.colors.error)
             .setDescription('❌ Debes estar en un canal de voz para usar este comando.')
-        ],
-        flags: MessageFlags.Ephemeral
+        ]
       });
       return;
     }
-    
-    await interaction.deferReply();
     
     const query = interaction.options.getString('query', true);
     const isPlaylist = interaction.options.getBoolean('playlist') || false;
@@ -135,13 +134,17 @@ export const playCommand: Command = {
       
     } catch (error) {
       console.error('Error en comando play:', error);
-      await interaction.editReply({
-        embeds: [
-          new EmbedBuilder()
-            .setColor(config.colors.error)
-            .setDescription('❌ Hubo un error al reproducir la canción.')
-        ]
-      });
+      try {
+        await interaction.editReply({
+          embeds: [
+            new EmbedBuilder()
+              .setColor(config.colors.error)
+              .setDescription('❌ Hubo un error al reproducir la canción.')
+          ]
+        });
+      } catch (e: any) {
+        if (e?.code !== 10062 && e?.code !== 40060) console.error('Error editReply play:', e);
+      }
     }
   }
 };
