@@ -21,9 +21,9 @@ import {
   getSpotifyPlaylistTracks,
   getSpotifyAlbumTracks,
 } from './spotifyClient';
-import { getAudioUrl, getAudioStream } from './cobaltClient';
+import { getAudioStream } from './audioClient';
 
-console.log('[MusicPlayer] Inicializado con Cobalt API como fuente de audio');
+console.log('[MusicPlayer] Inicializado con Piped + Cobalt (audioClient)');
 
 export function getOrCreateQueue(client: ExtendedClient, guildId: string): MusicQueue {
   let queue = client.musicQueues.get(guildId);
@@ -373,18 +373,10 @@ export async function playTrack(client: ExtendedClient, queue: MusicQueue): Prom
     console.log('[MusicPlayer] Intentando reproducir:', track.title);
     console.log('[MusicPlayer] URL original:', track.url);
     
-    const audioResult = await getAudioUrl(track.url, 1);
-    
-    if (!audioResult) {
-      throw new Error('No se pudo obtener el audio de ninguna instancia de Cobalt');
-    }
-    
-    console.log('[MusicPlayer] Audio URL obtenida de:', audioResult.source);
-    
-    const streamResult = await getAudioStream(audioResult.url);
+    const streamResult = await getAudioStream(track.url);
     
     if (!streamResult) {
-      throw new Error('No se pudo crear el stream de audio');
+      throw new Error('No se pudo obtener el stream de audio (Piped/Cobalt)');
     }
     
     queue.currentCleanup = streamResult.cleanup;

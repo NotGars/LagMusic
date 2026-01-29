@@ -48,6 +48,7 @@ bot/
 │   ├── interactionCreate.ts # Command handler
 │   └── voiceStateUpdate.ts  # Voice events + XP tracking
 └── systems/              # Core systems
+    ├── audioClient.ts    # Audio streaming (Piped + Cobalt, FFmpeg)
     ├── musicPlayer.ts    # Music playback logic
     └── rankcardGenerator.ts # Rankcard generation
 ```
@@ -101,10 +102,9 @@ This bot is designed to be deployed on Render (not Replit), using the bot/ direc
 - **January 2026**: Added staff commands for level management
   - /setlevel, /addxp, /removexp commands for staff role
   - Switched from 'canvas' to '@napi-rs/canvas' for deployment compatibility
-- **January 2026**: Migrated audio system to Cobalt API for improved stability
-  - Replaced play-dl with Cobalt API (multiple instances with automatic fallback)
-  - Audio transcoding via FFmpeg for reliable Discord playback
-  - Automatic retry system (up to 2 retries with backoff) for failed playbacks
-  - Instance reliability scoring with cooldown for failed instances
-  - Proper process cleanup on track end, skip, stop, and bot shutdown
-  - No Spotify credentials required - Cobalt extracts audio directly
+- **January 2026**: New audio system (Render-friendly, no play-dl/ytdl/cookies)
+  - **audioClient**: Piped API (primary) + Cobalt API (fallback) for stream URLs
+  - Piped uses proxied URLs (pipedproxy) so no 403 from YouTube on Render
+  - FFmpeg (ffmpeg-static) for transcoding to Discord-ready PCM
+  - No Spotify credentials, cookies, or ytdl-core required
+  - Cleanup on track end, skip, stop, and bot shutdown (SIGINT/SIGTERM)
