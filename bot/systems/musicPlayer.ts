@@ -384,7 +384,7 @@ export async function playTrack(client: ExtendedClient, queue: MusicQueue): Prom
     queue.currentCleanup = streamResult.cleanup;
     
     const resource = createAudioResource(streamResult.stream, {
-      inputType: StreamType.Raw,
+      inputType: streamResult.inputType ?? StreamType.Raw,
       inlineVolume: true,
     });
     

@@ -7,6 +7,8 @@ import { createRequire } from 'node:module';
 import { Readable } from 'stream';
 import { spawn, ChildProcess } from 'child_process';
 import { PassThrough } from 'stream';
+import { StreamType } from '@discordjs/voice';
+import play from 'play-dl';
 
 const _require = createRequire(import.meta.url);
 let ffmpegPath: string | null = null;
@@ -243,6 +245,7 @@ async function getAudioUrlInvidious(
 
 export interface AudioStreamResult {
   stream: Readable;
+  inputType?: StreamType;
   cleanup: () => void;
 }
 
@@ -304,11 +307,40 @@ function createFfmpegStream(audioUrl: string): AudioStreamResult | null {
 
 /**
  * Obtiene un stream de audio listo para Discord.
- * Orden: Piped → Cobalt → Invidious. Múltiples instancias por fuente.
+ *
+ * Estrategia:
+ * 1. Intentar primero con play-dl (YouTube/Spotify oficial).
+ * 2. Si falla play-dl, usar como *fallback* el sistema anterior
+ *    basado en Piped / Cobalt / Invidious.
  */
 export async function getAudioStream(
   videoUrl: string
 ): Promise<AudioStreamResult | null> {
+  // 1) Intentar con play-dl (camino principal)
+  try {
+    const ytStream = await play.stream(videoUrl, {
+      discordPlayerCompatibility: true,
+    });
+
+    const cleanup = () => {
+      const s: any = ytStream.stream;
+      if (s && typeof s.destroy === 'function') {
+        s.destroy();
+      }
+    };
+
+    log(`[Audio] Reproduciendo vía play-dl (type=${ytStream.type})`);
+
+    return {
+      stream: ytStream.stream as Readable,
+      inputType: ytStream.type as StreamType,
+      cleanup,
+    };
+  } catch (err: any) {
+    logErr(`[Audio] Error con play-dl: ${err?.message || String(err)}`);
+  }
+
+  // 2) Fallback: Piped → Cobalt → Invidious (por si play-dl falla)
   const videoId = extractVideoId(videoUrl);
   if (!videoId) {
     logErr(`URL de YouTube no válida: ${videoUrl}`);

@@ -19,7 +19,13 @@ export const playCommand: Command = {
     ),
   
   async execute(interaction: ChatInputCommandInteraction) {
-    await interaction.deferReply();
+    try {
+      await interaction.deferReply();
+    } catch (error: any) {
+      console.error('Error en deferReply de /play:', error);
+      // Si la interacción ya no es válida (10062), no seguimos para evitar más errores.
+      if (error?.code === 10062) return;
+    }
     
     const member = interaction.member as GuildMember;
     const voiceChannel = member.voice.channel;
