@@ -1,0 +1,57 @@
+🎵 ═══════════════════════════════════════ 🎵
+   LagMusic Bot está en línea!
+   Usuario: LagMusic#4010
+   Servidores: 1
+   Usuarios: 1
+    playStream: OggDemuxer {
+WARNING: Could not parse decipher function.
+Stream URLs will be missing.
+      _events: [Object],
+Please report this issue by uploading the "1769382740184-player-script.js" file on https://github.com/distubejs/ytdl-core/issues/144.
+WARNING: Could not parse n transform function.
+      _readableState: [ReadableState],
+Please report this issue by uploading the "1769382740193-player-script.js" file on https://github.com/distubejs/ytdl-core/issues/144.
+Error en el reproductor: AudioPlayerError: Status code: 403
+    at ClientRequest.<anonymous> (/app/node_modules/miniget/src/index.ts:255:19)
+    at Object.onceWrapper (node:events:639:26)
+    at ClientRequest.emit (node:events:524:28)
+    at HTTPParser.parserOnIncomingClient [as onIncoming] (node:_http_client:702:27)
+    at HTTPParser.parserOnHeadersComplete (node:_http_common:118:17)
+    at TLSSocket.socketOnData (node:_http_client:544:22)
+    at TLSSocket.emit (node:events:524:28)
+    at addChunk (node:internal/streams/readable:561:12)
+    at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+    at Readable.push (node:internal/streams/readable:392:5) {
+  resource: AudioResource {
+      [Symbol(kCapture)]: false
+    volume: undefined,
+      _writableState: [WritableState],
+    },
+    encoder: undefined,
+      allowHalfOpen: true,
+    playbackDuration: 0,
+    audioPlayer: AudioPlayer {
+      _maxListeners: undefined,
+    started: false,
+      _events: [Object: null prototype],
+      _eventsCount: 6,
+    silencePaddingFrames: 5,
+      _eventsCount: 2,
+      _remainder: null,
+      _maxListeners: undefined,
+      _head: null,
+      _state: [Object],
+      _bitstream: null,
+      [Symbol(shapeMode)]: true,
+      subscribers: [Array],
+      [Symbol(kCapture)]: false,
+      behaviors: [Object],
+      [Symbol(kCallback)]: null
+      debug: [Function (anonymous)],
+    },
+      [Symbol(shapeMode)]: false,
+    edges: [ [Object], [Object] ],
+    metadata: null,
+    silenceRemaining: -1
+  }
+}

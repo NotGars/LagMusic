@@ -1,0 +1,77 @@
+		throw new Error(`No compatible encryption modes. Available include: ${options.join(', ')}`);
+		      ^
+Error: No compatible encryption modes. Available include: aead_aes256_gcm_rtpsize, aead_xchacha20_poly1305_rtpsize
+    at chooseEncryptionMode (/opt/render/project/src/bot/node_modules/@discordjs/voice/src/networking/Networking.ts:190:9)
+    at <anonymous> (/opt/render/project/src/bot/node_modules/@discordjs/voice/src/networking/Networking.ts:410:15)
+Emitted 'error' event on VoiceConnection instance at:
+    at VoiceConnection.onNetworkingError (/opt/render/project/src/bot/node_modules/@discordjs/voice/src/VoiceConnection.ts:500:8)
+    at Networking.emit (node:events:508:20)
+    at <anonymous> (/opt/render/project/src/bot/node_modules/@discordjs/voice/src/networking/Networking.ts:420:35)
+Node.js v25.4.0
+==> Exited with status 1
+==> Common ways to troubleshoot your deploy: https://render.com/docs/troubleshooting-deploys
+Error ejecutando comando play: DiscordAPIError[10062]: Unknown interaction
+    at handleErrors (/opt/render/project/src/bot/node_modules/@discordjs/rest/src/lib/handlers/Shared.ts:148:10)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async BurstHandler.runRequest (/opt/render/project/src/bot/node_modules/@discordjs/rest/src/lib/handlers/BurstHandler.ts:144:20)
+    at async _REST.request (/opt/render/project/src/bot/node_modules/@discordjs/rest/src/lib/REST.ts:210:20)
+    at async ChatInputCommandInteraction.deferReply (/opt/render/project/src/bot/node_modules/discord.js/src/structures/interfaces/InteractionResponses.js:122:22)
+    at async Object.execute (/opt/render/project/src/bot/commands/play.ts:37:5)
+    at async handleInteractionCreate (/opt/render/project/src/bot/events/interactionCreate.ts:19:5) {
+  requestBody: { files: undefined, json: { type: 5, data: [Object] } },
+  rawError: { message: 'Unknown interaction', code: 10062 },
+  code: 10062,
+  status: 404,
+  method: 'POST',
+  url: 'https://discord.com/api/v10/interactions/1464179387384725635/aW50ZXJhY3Rpb246MTQ2NDE3OTM4NzM4NDcyNTYzNTpNQnk3TmE4YTFOcnZSUEhrSGhSNXZhQXVvTmhHQzRXVHR4WmVvRGVrYk81ejdzbGFZdlFORUtiMXZHZW1HRG5ROGo0NnlGNEVOMmRmblQzV3RyU3UxNjZpUVlSVEFDWTBkNVNaeXMzd2hJbDdZZGQ2cTBSdnJtcEtQUm9Vcjhsag/callback?with_response=false'
+}
+(node:109) Warning: Supplying "ephemeral" for interaction response options is deprecated. Utilize flags instead.
+(Use `node --trace-warnings ...` to show where the warning was created)
+node:events:486
+      throw er; // Unhandled 'error' event
+      ^
+DiscordAPIError[40060]: Interaction has already been acknowledged.
+    at handleErrors (/opt/render/project/src/bot/node_modules/@discordjs/rest/src/lib/handlers/Shared.ts:148:10)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async BurstHandler.runRequest (/opt/render/project/src/bot/node_modules/@discordjs/rest/src/lib/handlers/BurstHandler.ts:144:20)
+    at async _REST.request (/opt/render/project/src/bot/node_modules/@discordjs/rest/src/lib/REST.ts:210:20)
+    at async ChatInputCommandInteraction.reply (/opt/render/project/src/bot/node_modules/discord.js/src/structures/interfaces/InteractionResponses.js:193:22)
+    at async handleInteractionCreate (/opt/render/project/src/bot/events/interactionCreate.ts:31:7)
+Emitted 'error' event on Client instance at:
+    at emitUnhandledRejectionOrErr (node:events:391:10)
+    at process.processTicksAndRejections (node:internal/process/task_queues:92:21) {
+  requestBody: {
+    files: [],
+    json: {
+      type: 4,
+      data: {
+        content: '❌ Hubo un error ejecutando este comando.',
+        tts: false,
+        nonce: undefined,
+        enforce_nonce: false,
+        embeds: undefined,
+        components: undefined,
+        username: undefined,
+        avatar_url: undefined,
+        allowed_mentions: undefined,
+        flags: 64,
+        message_reference: undefined,
+        attachments: undefined,
+        sticker_ids: undefined,
+        thread_name: undefined,
+        applied_tags: undefined,
+        poll: undefined
+      }
+    }
+  },
+  rawError: {
+    message: 'Interaction has already been acknowledged.',
+    code: 40060
+  },
+  code: 40060,
+  status: 400,
+  method: 'POST',
+  url: 'https://discord.com/api/v10/interactions/1464179387384725635/aW50ZXJhY3Rpb246MTQ2NDE3OTM4NzM4NDcyNTYzNTpNQnk3TmE4YTFOcnZSUEhrSGhSNXZhQXVvTmhHQzRXVHR4WmVvRGVrYk81ejdzbGFZdlFORUtiMXZHZW1HRG5ROGo0NnlGNEVOMmRmblQzV3RyU3UxNjZpUVlSVEFDWTBkNVNaeXMzd2hJbDdZZGQ2cTBSdnJtcEtQUm9Vcjhsag/callback?with_response=false'
+}
+Node.js v25.4.0
+==> Running 'npx tsx index.ts'

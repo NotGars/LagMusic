@@ -1,0 +1,66 @@
+Starting Container
+npm warn config production Use `--omit=dev` instead.
+npm warn exec The following package was not found and will be installed: tsx@4.21.0
+YouTube cookies configured successfully
+🎵 Iniciando LagMusic Bot...
+🔄 Registrando comandos slash...
+🌐 Health server running on port 8080
+✅ Comandos registrados en servidor 1212886282645147768!
+🎵 ═══════════════════════════════════════ 🎵
+   LagMusic Bot está en línea!
+   Usuario: LagMusic#4010
+   Servidores: 1
+   Usuarios: 2
+🎵 ═══════════════════════════════════════ 🎵
+    at addChunk (node:internal/streams/readable:561:12)
+WARNING: Could not parse decipher function.
+    at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+Stream URLs will be missing.
+    at Readable.push (node:internal/streams/readable:392:5) {
+Please report this issue by uploading the "1769383787903-player-script.js" file on https://github.com/distubejs/ytdl-core/issues/144.
+  resource: AudioResource {
+WARNING: Could not parse n transform function.
+    playStream: OggDemuxer {
+Please report this issue by uploading the "1769383787908-player-script.js" file on https://github.com/distubejs/ytdl-core/issues/144.
+      _events: [Object],
+Error en el reproductor: AudioPlayerError: Status code: 403
+      _readableState: [ReadableState],
+    at ClientRequest.<anonymous> (/app/node_modules/miniget/src/index.ts:255:19)
+    at Object.onceWrapper (node:events:639:26)
+    at ClientRequest.emit (node:events:524:28)
+    at HTTPParser.parserOnIncomingClient [as onIncoming] (node:_http_client:702:27)
+    at HTTPParser.parserOnHeadersComplete (node:_http_common:118:17)
+    at TLSSocket.socketOnData (node:_http_client:544:22)
+    at TLSSocket.emit (node:events:524:28)
+      _writableState: [WritableState],
+      allowHalfOpen: true,
+      _bitstream: null,
+      _maxListeners: undefined,
+      [Symbol(shapeMode)]: true,
+      _eventsCount: 6,
+      [Symbol(kCapture)]: false,
+      _remainder: null,
+      [Symbol(kCallback)]: null
+      _head: null,
+    },
+    playbackDuration: 0,
+    edges: [ [Object], [Object] ],
+    silenceRemaining: -1
+    encoder: undefined,
+    metadata: null,
+      behaviors: [Object],
+  }
+    started: false,
+    volume: undefined,
+    audioPlayer: AudioPlayer {
+      debug: [Function (anonymous)],
+}
+    silencePaddingFrames: 5,
+      _events: [Object: null prototype],
+      [Symbol(shapeMode)]: false,
+      _eventsCount: 2,
+      [Symbol(kCapture)]: false
+      _maxListeners: undefined,
+    },
+      _state: [Object],
+      subscribers: [Array],
