@@ -58,6 +58,7 @@ export async function connectToVoice(client: ExtendedClient, voiceChannel: Voice
       channelId: voiceChannel.id,
       guildId: voiceChannel.guild.id,
       adapterCreator: voiceChannel.guild.voiceAdapterCreator,
+      daveEncryption: false,
     });
     
     queue.connection = connection;
