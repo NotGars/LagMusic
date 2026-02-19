@@ -8,5 +8,8 @@
         }
       }
     }
+  },
+  "deploy": {
+    "startCommand": "npx tsx index.ts"
   }
 }
