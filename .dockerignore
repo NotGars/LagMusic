@@ -1,0 +1,9 @@
+node_modules
+dist
+.git
+client
+server
+script
+attached_assets
+*.md
+.gitignore
