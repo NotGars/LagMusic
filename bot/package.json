@@ -2,10 +2,10 @@
   "name": "lagmusic-bot",
   "version": "1.0.0",
   "description": "Bot de música para Discord con sistema de niveles y TempVoice",
-  "main": "bot/index.ts",
+  "main": "index.ts",
   "scripts": {
-    "start": "npx tsx bot/index.ts",
-    "dev": "npx tsx watch bot/index.ts"
+    "start": "npx tsx index.ts",
+    "dev": "npx tsx watch index.ts"
   },
   "dependencies": {
     "tsx": "^4.21.0",
