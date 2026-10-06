@@ -9,7 +9,7 @@ import {
   StreamType,
 } from '@discordjs/voice';
 import yts from 'yt-search';
-import { VoiceChannel, TextChannel, EmbedBuilder, GuildMember } from 'discord.js';
+import { VoiceChannel, TextChannel, EmbedBuilder, GuildMember, Message } from 'discord.js';
 import { ExtendedClient, MusicQueue, Track } from '../types';
 import { config } from '../config';
 import {
@@ -22,8 +22,16 @@ import {
   getSpotifyAlbumTracks,
 } from './spotifyClient';
 import { getAudioStream } from './audioClient';
+import { prefetchSong, SongError } from './songStore';
 
-console.log('[MusicPlayer] Inicializado con Piped + Cobalt (audioClient)');
+console.log('[MusicPlayer] Inicializado (yt-dlp + canal de canciones)');
+
+/** '3:25' / '1:02:10' -> segundos (0 si no se entiende). */
+function parseDuration(text: string): number {
+  const parts = (text || '').split(':').map((n) => parseInt(n, 10));
+  if (parts.length < 2 || parts.some((n) => Number.isNaN(n))) return 0;
+  return parts.reduce((acc, n) => acc * 60 + n, 0);
+}
 
 export function getOrCreateQueue(client: ExtendedClient, guildId: string): MusicQueue {
   let queue = client.musicQueues.get(guildId);
@@ -375,12 +383,27 @@ export async function playTrack(client: ExtendedClient, queue: MusicQueue): Prom
     console.log('[MusicPlayer] Intentando reproducir:', track.title);
     console.log('[MusicPlayer] URL original:', track.url);
     
-    const streamResult = await getAudioStream(track.url);
-    
-    if (!streamResult) {
-      throw new Error('No se pudo obtener el stream de audio (Piped/Cobalt)');
-    }
-    
+    const durationSec = parseDuration(track.duration);
+    let notice: Message | null = null;
+    const streamResult = await getAudioStream(client, track.url, {
+      title: track.title,
+      durationSec,
+      // Solo avisa cuando de verdad hay que bajarla (la primera vez que alguien la pide).
+      onDownloading: () => {
+        client.channels
+          .fetch(queue.textChannelId)
+          .then((ch) => (ch as TextChannel).send({
+            embeds: [new EmbedBuilder()
+              .setColor(config.colors.info)
+              .setDescription(`⬇️ Descargando **${track.title}**... la primera vez tarda unos segundos, luego queda guardada.`)],
+          }))
+          .then((m) => { notice = m; })
+          .catch(() => undefined);
+      },
+    });
+    const downloadNotice = notice as Message | null;
+    if (downloadNotice) downloadNotice.delete().catch(() => undefined);
+
     queue.currentCleanup = streamResult.cleanup;
     
     const resource = createAudioResource(streamResult.stream, {
@@ -392,6 +415,10 @@ export async function playTrack(client: ExtendedClient, queue: MusicQueue): Prom
     queue.isPlaying = true;
     queue.isPaused = false;
     (queue as any)._retryCount = 0;
+
+    // Mientras suena esta, deja lista la siguiente (bajarla/sacarla del canal) para que no haya silencio.
+    const next = queue.tracks[0];
+    if (next) prefetchSong(client, next.url, { title: next.title, durationSec: parseDuration(next.duration) });
     
     const textChannel = await client.channels.fetch(queue.textChannelId) as TextChannel;
     if (textChannel) {
@@ -413,13 +440,14 @@ export async function playTrack(client: ExtendedClient, queue: MusicQueue): Prom
     return true;
   } catch (error: any) {
     console.error('[MusicPlayer] Error reproduciendo canción:', error.message || error);
+    const motivo = error instanceof SongError ? `\n${error.userMessage}` : '';
     
     const textChannel = await client.channels.fetch(queue.textChannelId) as TextChannel;
     if (textChannel) {
       await textChannel.send({
         embeds: [new EmbedBuilder()
           .setColor(config.colors.error)
-          .setDescription('❌ Error al reproducir. Saltando a la siguiente canción...')]
+          .setDescription(`❌ No pude reproducir **${track.title}**.${motivo}\nSaltando a la siguiente canción...`)]
       });
     }
     
