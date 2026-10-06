@@ -1,6 +1,7 @@
 import { ActivityType } from 'discord.js';
 import { ExtendedClient } from '../types';
 import { config } from '../config';
+import { loadCatalog } from '../systems/songStore';
 
 export function handleReady(client: ExtendedClient) {
   console.log(`\n🎵 ═══════════════════════════════════════ 🎵`);
@@ -11,6 +12,9 @@ export function handleReady(client: ExtendedClient) {
   console.log(`🎵 ═══════════════════════════════════════ 🎵\n`);
   
   client.user?.setActivity('🎵 /play | /help', { type: ActivityType.Listening });
+
+  // Lee el canal de canciones para saber cuáles ya están guardadas.
+  void loadCatalog(client);
   
   setInterval(() => {
     const activities = [
