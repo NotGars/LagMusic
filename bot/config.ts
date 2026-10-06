@@ -1,6 +1,11 @@
 export const config = {
   token: process.env.DISCORD_TOKEN || '',
   clientId: process.env.CLIENT_ID || '',
+
+  // Canal de Discord donde se guardan los mp3 de las canciones ya descargadas.
+  songs: {
+    channelId: process.env.SONGS_CHANNEL_ID || '1557170112023363625',
+  },
   
   colors: {
     primary: 0x9B59B6,
