@@ -113,39 +113,44 @@ client.on(Events.InteractionCreate, (interaction) => handleInteractionCreate(cli
 client.on(Events.VoiceStateUpdate, (oldState, newState) => handleVoiceStateUpdate(client, oldState, newState));
 
 async function registerCommands() {
-  const rest = new REST({ version: '10' }).setToken(config.token);
+  // Si Discord pide esperar mucho (límite diario de comandos), NO nos quedamos colgados: se rechaza y se avisa.
+  const rest = new REST({
+    version: '10',
+    timeout: 30_000,
+    rejectOnRateLimit: (info) => info.timeToReset > 15_000,
+  }).setToken(config.token);
   const guildId = process.env.GUILD_ID;
-  
+
   try {
-    console.log('🔄 Limpiando comandos duplicados...');
-    
-    await rest.put(Routes.applicationCommands(config.clientId), { body: [] });
-    console.log('✅ Comandos globales eliminados');
-    
-    if (guildId) {
-      await rest.put(Routes.applicationGuildCommands(config.clientId, guildId), { body: [] });
-      console.log(`✅ Comandos del servidor ${guildId} eliminados`);
-    }
-    
-    console.log('🔄 Registrando comandos slash...');
-    
     const commandData = commands.map(cmd => cmd.data.toJSON());
-    
+    console.log(`🔄 Registrando ${commandData.length} comandos slash...`);
+
+    // Un solo PUT reemplaza TODOS los comandos de ese ámbito. Ya no se borran antes: borrar y volver a crear en cada
+    // arranque gastaba el límite diario de Discord (200 creaciones por día) y dejaba el registro colgado/bloqueado.
     if (guildId) {
-      await rest.put(
-        Routes.applicationGuildCommands(config.clientId, guildId),
-        { body: commandData },
-      );
-      console.log(`✅ Comandos registrados en servidor ${guildId}!`);
+      await rest.put(Routes.applicationGuildCommands(config.clientId, guildId), { body: commandData });
+      console.log(`✅ Comandos registrados en el servidor ${guildId}!`);
+
+      // Si quedaron comandos globales de antes, saldrían duplicados: se limpian solo si existen.
+      const globales = (await rest.get(Routes.applicationCommands(config.clientId))) as unknown[];
+      if (Array.isArray(globales) && globales.length > 0) {
+        await rest.put(Routes.applicationCommands(config.clientId), { body: [] });
+        console.log('🧹 Comandos globales duplicados eliminados');
+      }
     } else {
-      await rest.put(
-        Routes.applicationCommands(config.clientId),
-        { body: commandData },
-      );
+      await rest.put(Routes.applicationCommands(config.clientId), { body: commandData });
       console.log('✅ Comandos registrados globalmente!');
     }
-  } catch (error) {
-    console.error('❌ Error registrando comandos:', error);
+  } catch (error: any) {
+    if (String(error?.name).startsWith('RateLimitError') || typeof error?.timeToReset === 'number') {
+      const min = Math.ceil((error.timeToReset ?? 0) / 60_000);
+      console.error(
+        `⏳ Discord limitó el registro de comandos slash: hay que esperar ~${min} min ` +
+        `(límite diario de creaciones). El bot sigue funcionando; los comandos se registrarán en el próximo arranque tras ese tiempo.`
+      );
+    } else {
+      console.error('❌ Error registrando comandos:', error);
+    }
   }
 }
 
@@ -184,8 +189,9 @@ async function main() {
     console.log(`🌐 Health server running on port ${port}`);
   });
   
-  await registerCommands();
+  // Primero conecta el bot; el registro de comandos va aparte para que NUNCA lo deje esperando.
   await client.login(config.token);
+  void registerCommands();
 }
 
 main().catch(console.error);
