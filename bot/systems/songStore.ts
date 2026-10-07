@@ -8,13 +8,16 @@
  *
  * Variables de entorno opcionales:
  *   SONGS_CHANNEL_ID   canal donde se guardan los mp3 (por defecto 1557170112023363625)
- *   YT_COOKIES         contenido de un cookies.txt (formato Netscape) de YouTube. Solo hace falta si YouTube bloquea al servidor.
- *   YT_COOKIES_FILE    ruta a ese cookies.txt (alternativa a YT_COOKIES)
+ *   YT_COOKIES         contenido de un cookies.txt (formato Netscape) de YouTube. Se usa SOLO cuando YouTube bloquea
+ *                      la IP del servidor ("Sign in to confirm you're not a bot"): primero se intenta sin cookies.
+ *   YT_COOKIES_B64     lo mismo pero en base64 (más seguro para pegar en una sola línea en Render)
+ *   YT_COOKIES_FILE    ruta a ese cookies.txt (alternativa)
  *   YT_PROXY           proxy para yt-dlp (http://usuario:clave@host:puerto)
  *   YTDLP_PATH         ruta a un yt-dlp ya instalado (si no, se usa el del sistema o se descarga solo)
  *   MAX_SONG_SECONDS   duración máxima (por defecto 3 horas)
  *   UPLOAD_LIMIT_MB    límite de subida de archivos del servidor (por defecto según el nivel de boost: 10/50/100)
- *   SOUNDCLOUD_FALLBACK=0   apaga el respaldo de SoundCloud
+ *   SOUNDCLOUD_FALLBACK=1   (apagado por defecto) si YouTube falla, busca en SoundCloud. Solo reproduce, NO guarda en el canal,
+ *                      porque puede ser otra versión de la canción.
  */
 import { spawn } from 'child_process';
 import { promises as fsp, existsSync, statSync, utimesSync } from 'fs';
@@ -28,7 +31,7 @@ import { ffmpegPath } from './ffmpeg';
 const log = (m: string) => console.log('[Songs]', m);
 const logErr = (m: string) => console.error('[Songs]', m);
 
-export type SongErrorKind = 'blocked' | 'update' | 'unavailable' | 'long' | 'other';
+export type SongErrorKind = 'blocked' | 'cookies' | 'update' | 'unavailable' | 'long' | 'other';
 
 export class SongError extends Error {
   constructor(message: string, public userMessage: string, public kind: SongErrorKind = 'other') {
@@ -196,28 +199,68 @@ async function updateYtDlp(bin: string): Promise<boolean> {
   }
 }
 
-let cookiesTmp: string | null | undefined;
-async function cookiesArgs(): Promise<string[]> {
-  if (cookiesTmp === undefined) {
-    cookiesTmp = null;
-    try {
-      const raw = process.env.YT_COOKIES || (process.env.YT_COOKIES_FILE && existsSync(process.env.YT_COOKIES_FILE)
-        ? await fsp.readFile(process.env.YT_COOKIES_FILE, 'utf8')
-        : '');
-      if (raw.trim()) {
-        await fsp.mkdir(BIN_DIR, { recursive: true });
-        cookiesTmp = path.join(BIN_DIR, 'cookies.txt'); // copia: yt-dlp reescribe el archivo
-        await fsp.writeFile(cookiesTmp, raw.replace(/\\n/g, '\n'), { mode: 0o600 });
-        log('Usando cookies de YouTube');
-      }
-    } catch (e: any) {
-      logErr(`No pude leer las cookies: ${e?.message || e}`);
-    }
+// ───────────────────────── Cookies de YouTube ─────────────────────────
+interface CookieInfo {
+  path: string;
+  total: number;
+  youtube: number;
+  loggedIn: boolean;
+}
+let cookieInfo: CookieInfo | null | undefined;
+/** Última vez que hizo falta usar cookies porque YouTube bloqueaba sin ellas: durante un rato se empieza directo con cookies. */
+let preferCookiesUntil = 0;
+
+/** Deja el cookies.txt en el formato exacto que exige yt-dlp (cabecera + 7 campos separados por TAB), aunque se haya pegado mal. */
+export function normalizeCookies(raw: string): { text: string; total: number; youtube: number; loggedIn: boolean } {
+  const lines = raw.replace(/\r\n?/g, '\n').replace(/\\n/g, '\n').split('\n');
+  const out: string[] = ['# Netscape HTTP Cookie File'];
+  let total = 0;
+  let youtube = 0;
+  let loggedIn = false;
+  for (const line of lines) {
+    const l = line.trim();
+    if (!l || (l.startsWith('#') && !l.startsWith('#HttpOnly_'))) continue;
+    const tabs = l.split('\t');
+    const parts = tabs.length >= 7 ? tabs : l.split(/\s+/); // si al pegar los TAB se volvieron espacios
+    if (parts.length < 7) continue;
+    const f = [...parts.slice(0, 6), parts.slice(6).join(' ')];
+    out.push(f.join('\t'));
+    total++;
+    if (/youtube\.com|google\./i.test(f[0])) youtube++;
+    if (/^(LOGIN_INFO|SAPISID|__Secure-3PSID|SID)$/.test(f[5])) loggedIn = true;
   }
-  return cookiesTmp ? ['--cookies', cookiesTmp] : [];
+  return { text: out.join('\n') + '\n', total, youtube, loggedIn };
 }
 
-async function baseArgs(): Promise<string[]> {
+async function loadCookies(): Promise<CookieInfo | null> {
+  if (cookieInfo !== undefined) return cookieInfo;
+  cookieInfo = null;
+  try {
+    let raw = '';
+    if (process.env.YT_COOKIES_B64) raw = Buffer.from(process.env.YT_COOKIES_B64.trim(), 'base64').toString('utf8');
+    else if (process.env.YT_COOKIES) raw = process.env.YT_COOKIES;
+    else if (process.env.YT_COOKIES_FILE && existsSync(process.env.YT_COOKIES_FILE)) raw = await fsp.readFile(process.env.YT_COOKIES_FILE, 'utf8');
+    if (!raw.trim()) return cookieInfo;
+
+    const n = normalizeCookies(raw);
+    if (n.total === 0) {
+      logErr('Las cookies de YouTube están configuradas pero no pude leer ninguna línea válida (¿formato Netscape / cookies.txt?).');
+      return cookieInfo;
+    }
+    await fsp.mkdir(BIN_DIR, { recursive: true });
+    const file = path.join(BIN_DIR, 'cookies.txt'); // copia: yt-dlp reescribe el archivo
+    await fsp.writeFile(file, n.text, { mode: 0o600 });
+    cookieInfo = { path: file, total: n.total, youtube: n.youtube, loggedIn: n.loggedIn };
+    log(`Cookies de YouTube cargadas: ${n.total} (${n.youtube} de youtube/google)`);
+    if (n.youtube === 0) logErr('⚠️ Ninguna cookie es de youtube.com/google.com: no servirán.');
+    else if (!n.loggedIn) logErr('⚠️ Las cookies no parecen de una sesión iniciada (faltan SID/SAPISID/LOGIN_INFO).');
+  } catch (e: any) {
+    logErr(`No pude leer las cookies: ${e?.message || e}`);
+  }
+  return cookieInfo;
+}
+
+async function baseArgs(useCookies = false): Promise<string[]> {
   const a = [
     '--ignore-config', '--no-playlist', '--no-warnings', '--no-progress',
     '--socket-timeout', '20', '--retries', '3',
@@ -225,14 +268,20 @@ async function baseArgs(): Promise<string[]> {
   ];
   if (ffmpegPath !== 'ffmpeg') a.push('--ffmpeg-location', ffmpegPath);
   if (process.env.YT_PROXY) a.push('--proxy', process.env.YT_PROXY);
-  return [...a, ...(await cookiesArgs())];
+  if (useCookies) {
+    const c = await loadCookies();
+    if (c) a.push('--cookies', c.path);
+  }
+  return a;
 }
 
 function classify(stderr: string): SongError {
   const s = stderr.trim();
   const tail = s.split('\n').slice(-3).join(' | ').slice(0, 300);
+  if (/cookies are no longer valid|rotated in the browser/i.test(s))
+    return new SongError(tail, 'Las cookies de YouTube caducaron 😭 Hay que exportar unas nuevas y actualizar YT_COOKIES.', 'cookies');
   if (/Sign in to confirm|not a bot|confirm you.re not/i.test(s))
-    return new SongError(tail, 'YouTube está bloqueando al servidor 😭 (hay que poner cookies, mira el README).', 'blocked');
+    return new SongError(tail, 'YouTube está bloqueando al servidor 😭 (hace falta una cuenta con cookies: variable YT_COOKIES).', 'blocked');
   if (/does not pass filter|is live|live event/i.test(s))
     return new SongError(tail, 'Ese video es un directo o dura demasiado.', 'long');
   if (/Video unavailable|Private video|has been removed|not available in your country|copyright|members-only|age[- ]restricted/i.test(s))
@@ -247,9 +296,9 @@ interface RawAudio {
   duration: number | null;
 }
 
-async function fetchRaw(bin: string, source: string, dir: string): Promise<RawAudio> {
+async function fetchRaw(bin: string, source: string, dir: string, useCookies = false): Promise<RawAudio> {
   const args = [
-    ...(await baseArgs()),
+    ...(await baseArgs(useCookies)),
     '-f', 'bestaudio/best',
     '--match-filters', `!is_live & duration <=? ${MAX_SECONDS}`,
     '--no-simulate',
@@ -268,8 +317,9 @@ async function fetchRaw(bin: string, source: string, dir: string): Promise<RawAu
   return { path: file, duration: Number.isFinite(dur) && dur > 0 ? dur : null };
 }
 
-// ───────────────────────── Respaldo: SoundCloud ─────────────────────────
+// ───────────────────────── Respaldo: SoundCloud (opcional) ─────────────────────────
 const STOP_TOKENS = new Set(['official', 'oficial', 'video', 'audio', 'lyrics', 'lyric', 'letra', 'ft', 'feat', 'hd', 'mv', 'de', 'la', 'el', 'the']);
+const WRONG_VERSION = /\b(remix|cover|nightcore|slowed|reverb|sped|speed|8d|boosted|karaoke|instrumental|live|mashup|edit|preview|snippet|loop|bootleg|flip)\b/i;
 function tokens(s: string): string[] {
   return s
     .toLowerCase()
@@ -279,30 +329,33 @@ function tokens(s: string): string[] {
     .filter((t) => t.length > 1 && !STOP_TOKENS.has(t));
 }
 
+/**
+ * Solo si SOUNDCLOUD_FALLBACK=1. Es MUY estricto, porque SoundCloud está lleno de covers, remixes y subidas raras:
+ * deben estar todas las palabras pedidas, casi ninguna palabra de más, ninguna "versión" distinta (remix, cover...) y
+ * la duración debe ser casi igual a la del video de YouTube pedido.
+ */
 async function soundcloudFallback(bin: string, title: string, expectedSec: number | null, dir: string): Promise<RawAudio | null> {
-  if (process.env.SOUNDCLOUD_FALLBACK === '0') return null;
+  if (process.env.SOUNDCLOUD_FALLBACK !== '1' || !expectedSec) return null;
   try {
     const q = nameForFile(title);
-    const r = await run(bin, [...(await baseArgs()), '--flat-playlist', '-J', `scsearch5:${q}`], 60_000);
+    const r = await run(bin, [...(await baseArgs()), '--flat-playlist', '-J', `scsearch8:${q}`], 60_000);
     if (r.code !== 0) return null;
     const entries: any[] = JSON.parse(r.stdout)?.entries ?? [];
     const qt = tokens(q);
     if (!qt.length) return null;
-    let best: any = null;
-    let bestScore = 0;
+    const tol = Math.max(10, expectedSec * 0.12);
     for (const e of entries) {
-      if (!e?.url) continue;
-      if (expectedSec && e.duration && Math.abs(e.duration - expectedSec) > Math.max(20, expectedSec * 0.25)) continue;
-      const ct = new Set(tokens(`${e.title || ''} ${e.uploader || ''}`));
-      const score = qt.filter((t) => ct.has(t)).length / qt.length;
-      if (score > bestScore) {
-        best = e;
-        bestScore = score;
-      }
+      if (!e?.url || !e.duration || Math.abs(e.duration - expectedSec) > tol) continue;
+      const titleTokens = new Set(tokens(e.title || ''));
+      const allTokens = new Set([...titleTokens, ...tokens(e.uploader || '')]);
+      if (!qt.every((t) => allTokens.has(t))) continue;
+      if ([...titleTokens].filter((t) => !qt.includes(t)).length > 3) continue;
+      if (WRONG_VERSION.test(e.title || '') && !WRONG_VERSION.test(q)) continue;
+      log(`Respaldo SoundCloud: "${e.title}" (${Math.round(e.duration)} s, pedida: ${Math.round(expectedSec)} s)`);
+      return await fetchRaw(bin, e.url, dir);
     }
-    if (!best || bestScore < 0.6) return null;
-    log(`Respaldo SoundCloud: "${best.title}" (parecido ${bestScore.toFixed(2)})`);
-    return await fetchRaw(bin, best.url, dir);
+    log('Respaldo SoundCloud: ningún resultado se parece lo bastante, no se usa');
+    return null;
   } catch (e: any) {
     logErr(`Respaldo SoundCloud falló: ${e?.message || e}`);
     return null;
@@ -384,20 +437,45 @@ async function downloadAndStore(client: ExtendedClient, id: string, dest: string
     const ytUrl = `https://www.youtube.com/watch?v=${id}`;
     const expected = req.durationSec && req.durationSec > 0 ? req.durationSec : null;
 
+    // Orden: primero SIN cookies (así no se "quema" la cuenta); si YouTube bloquea la IP, se reintenta CON cookies.
+    // Si ya hizo falta hace poco, se empieza directo con cookies para no perder tiempo en cada canción.
+    const haveCookies = !!(await loadCookies());
+    const modes: boolean[] = !haveCookies ? [false] : Date.now() < preferCookiesUntil ? [true, false] : [false, true];
+
     let raw: RawAudio | null = null;
     let lastErr: SongError | null = null;
-    for (let round = 0; round < 2 && !raw; round++) {
+    let updated = false;
+    for (let i = 0; i < modes.length && !raw; i++) {
+      const withCookies = modes[i];
       try {
-        raw = await fetchRaw(bin, ytUrl, dir);
+        raw = await fetchRaw(bin, ytUrl, dir, withCookies);
+        if (withCookies && modes[0] === false) {
+          preferCookiesUntil = Date.now() + 30 * 60_000;
+          log('YouTube bloqueó sin cookies; con cookies funcionó (las uso directo los próximos 30 min)');
+        }
       } catch (e: any) {
         lastErr = e instanceof SongError ? e : classify(String(e?.message || e));
-        logErr(`yt-dlp (${lastErr.kind}): ${lastErr.message}`);
-        if (round === 0 && lastErr.kind === 'update' && (await updateYtDlp(bin))) continue;
+        logErr(`yt-dlp [${withCookies ? 'con' : 'sin'} cookies] (${lastErr.kind}): ${lastErr.message}`);
+        if (lastErr.kind === 'update' && !updated && (await updateYtDlp(bin))) {
+          updated = true;
+          i--; // mismo modo, con yt-dlp ya actualizado
+          continue;
+        }
+        if ((lastErr.kind === 'blocked' || lastErr.kind === 'cookies') && i < modes.length - 1) {
+          log(modes[i + 1] ? 'YouTube bloqueó la IP del servidor; reintento con las cookies de YouTube...' : 'Con cookies también falló; pruebo sin cookies...');
+          continue;
+        }
         break;
       }
     }
-    if (!raw && lastErr && lastErr.kind !== 'unavailable' && lastErr.kind !== 'long' && req.title) {
+    // Si bloqueó incluso habiendo probado con cookies, el problema son las cookies (caducadas o de una cuenta marcada).
+    if (!raw && haveCookies && lastErr && (lastErr.kind === 'blocked' || lastErr.kind === 'cookies')) {
+      lastErr = new SongError(lastErr.message, 'YouTube sigue bloqueando incluso con cookies 😭 Exporta cookies nuevas (de una cuenta que no uses en otro lado) y actualiza YT_COOKIES.', 'cookies');
+    }
+    let fromFallback = false;
+    if (!raw && lastErr && (lastErr.kind === 'blocked' || lastErr.kind === 'cookies' || lastErr.kind === 'update' || lastErr.kind === 'other') && req.title) {
       raw = await soundcloudFallback(bin, req.title, expected, dir);
+      fromFallback = !!raw;
     }
     if (!raw) throw lastErr ?? new SongError('sin audio', 'No pude bajar esa canción.');
 
@@ -414,6 +492,10 @@ async function downloadAndStore(client: ExtendedClient, id: string, dest: string
     if (size > limit) canUpload = false;
 
     let saved = false;
+    if (fromFallback) {
+      canUpload = false; // podría ser otra versión de la canción: se reproduce, pero NO se guarda con el id de YouTube
+      log('Audio del respaldo de SoundCloud: se reproduce pero no se guarda en el canal');
+    }
     if (canUpload && channel) {
       try {
         const name = nameForFile(req.title || id);
@@ -428,7 +510,7 @@ async function downloadAndStore(client: ExtendedClient, id: string, dest: string
       } catch (e: any) {
         logErr(`No pude subirla al canal de canciones: ${e?.message || e} (¿faltan permisos de Enviar mensajes / Adjuntar archivos?)`);
       }
-    } else if (!canUpload) {
+    } else if (!canUpload && !fromFallback) {
       log(`No se guarda en el canal (pesa ${Math.round(size / 1024 / 1024)} MB y el límite es ${Math.round(limit / 1024 / 1024)} MB), solo se reproduce`);
     }
     void pruneCache();
