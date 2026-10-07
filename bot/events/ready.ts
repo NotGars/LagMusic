@@ -1,7 +1,7 @@
 import { ActivityType } from 'discord.js';
 import { ExtendedClient } from '../types';
 import { config } from '../config';
-import { loadCatalog } from '../systems/songStore';
+import { loadCatalog, warmUpDownloader } from '../systems/songStore';
 import { generateDependencyReport } from '@discordjs/voice';
 
 export function handleReady(client: ExtendedClient) {
@@ -16,6 +16,7 @@ export function handleReady(client: ExtendedClient) {
 
   // Lee el canal de canciones para saber cuáles ya están guardadas.
   void loadCatalog(client);
+  void warmUpDownloader(); // baja yt-dlp y lee las cookies ahora, no cuando piden la primera canción
 
   // Útil para diagnosticar problemas de voz (cifrado DAVE, ffmpeg, opus...).
   console.log(generateDependencyReport());
