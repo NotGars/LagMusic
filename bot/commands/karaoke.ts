@@ -80,7 +80,7 @@ export const karaokeCommand: Command = {
         ]
       });
       
-      if (!queue.isPlaying) {
+      if (!queue.isPlaying && !queue.loading) {
         await playTrack(client, queue);
       }
       
