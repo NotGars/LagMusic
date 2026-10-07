@@ -8,8 +8,8 @@
  *
  * Variables de entorno opcionales:
  *   SONGS_CHANNEL_ID   canal donde se guardan los mp3 (por defecto 1557170112023363625)
- *   YT_COOKIES         contenido de un cookies.txt (formato Netscape) de YouTube. Se usa SOLO cuando YouTube bloquea
- *                      la IP del servidor ("Sign in to confirm you're not a bot"): primero se intenta sin cookies.
+ *   YT_COOKIES         contenido de un cookies.txt (formato Netscape) de YouTube. Si está configurada, se usa SIEMPRE
+ *                      (no se pierde tiempo probando antes sin cookies, que desde Render YouTube bloquea).
  *   YT_COOKIES_B64     lo mismo pero en base64 (más seguro para pegar en una sola línea en Render)
  *   YT_COOKIES_FILE    ruta a ese cookies.txt (alternativa)
  *   YT_PROXY           proxy para yt-dlp (http://usuario:clave@host:puerto)
@@ -207,8 +207,6 @@ interface CookieInfo {
   loggedIn: boolean;
 }
 let cookieInfo: CookieInfo | null | undefined;
-/** Última vez que hizo falta usar cookies porque YouTube bloqueaba sin ellas: durante un rato se empieza directo con cookies. */
-let preferCookiesUntil = 0;
 
 /** Deja el cookies.txt en el formato exacto que exige yt-dlp (cabecera + 7 campos separados por TAB), aunque se haya pegado mal. */
 export function normalizeCookies(raw: string): { text: string; total: number; youtube: number; loggedIn: boolean } {
@@ -429,6 +427,7 @@ async function pullFromChannel(client: ExtendedClient, messageId: string, dest: 
 
 // ───────────────────────── Punto de entrada ─────────────────────────
 async function downloadAndStore(client: ExtendedClient, id: string, dest: string, req: SongRequest): Promise<SongFile> {
+  const t0 = Date.now();
   const dir = await fsp.mkdtemp(path.join(os.tmpdir(), 'lagdl-'));
   try {
     const channel = await getChannel(client).catch(() => null);
@@ -437,41 +436,29 @@ async function downloadAndStore(client: ExtendedClient, id: string, dest: string
     const ytUrl = `https://www.youtube.com/watch?v=${id}`;
     const expected = req.durationSec && req.durationSec > 0 ? req.durationSec : null;
 
-    // Orden: primero SIN cookies (así no se "quema" la cuenta); si YouTube bloquea la IP, se reintenta CON cookies.
-    // Si ya hizo falta hace poco, se empieza directo con cookies para no perder tiempo en cada canción.
+    // Si hay cookies configuradas se usan SIEMPRE y solo ellas: probar antes sin cookies desde un servidor (Render)
+    // acaba en bloqueo y solo hace perder tiempo en cada canción. Sin cookies configuradas, se intenta sin ellas.
     const haveCookies = !!(await loadCookies());
-    const modes: boolean[] = !haveCookies ? [false] : Date.now() < preferCookiesUntil ? [true, false] : [false, true];
+    const withCookies = haveCookies;
 
     let raw: RawAudio | null = null;
     let lastErr: SongError | null = null;
-    let updated = false;
-    for (let i = 0; i < modes.length && !raw; i++) {
-      const withCookies = modes[i];
+    for (let attempt = 0; attempt < 2 && !raw; attempt++) {
       try {
         raw = await fetchRaw(bin, ytUrl, dir, withCookies);
-        if (withCookies && modes[0] === false) {
-          preferCookiesUntil = Date.now() + 30 * 60_000;
-          log('YouTube bloqueó sin cookies; con cookies funcionó (las uso directo los próximos 30 min)');
-        }
       } catch (e: any) {
         lastErr = e instanceof SongError ? e : classify(String(e?.message || e));
         logErr(`yt-dlp [${withCookies ? 'con' : 'sin'} cookies] (${lastErr.kind}): ${lastErr.message}`);
-        if (lastErr.kind === 'update' && !updated && (await updateYtDlp(bin))) {
-          updated = true;
-          i--; // mismo modo, con yt-dlp ya actualizado
-          continue;
-        }
-        if ((lastErr.kind === 'blocked' || lastErr.kind === 'cookies') && i < modes.length - 1) {
-          log(modes[i + 1] ? 'YouTube bloqueó la IP del servidor; reintento con las cookies de YouTube...' : 'Con cookies también falló; pruebo sin cookies...');
-          continue;
-        }
+        // Si YouTube cambió algo, actualiza yt-dlp y reintenta UNA vez.
+        if (attempt === 0 && lastErr.kind === 'update' && (await updateYtDlp(bin))) continue;
         break;
       }
     }
-    // Si bloqueó incluso habiendo probado con cookies, el problema son las cookies (caducadas o de una cuenta marcada).
+    // Si bloqueó incluso con cookies, el problema son las cookies (caducadas o de una cuenta marcada).
     if (!raw && haveCookies && lastErr && (lastErr.kind === 'blocked' || lastErr.kind === 'cookies')) {
       lastErr = new SongError(lastErr.message, 'YouTube sigue bloqueando incluso con cookies 😭 Exporta cookies nuevas (de una cuenta que no uses en otro lado) y actualiza YT_COOKIES.', 'cookies');
     }
+    const tDownload = Date.now();
     let fromFallback = false;
     if (!raw && lastErr && (lastErr.kind === 'blocked' || lastErr.kind === 'cookies' || lastErr.kind === 'update' || lastErr.kind === 'other') && req.title) {
       raw = await soundcloudFallback(bin, req.title, expected, dir);
@@ -487,7 +474,9 @@ async function downloadAndStore(client: ExtendedClient, id: string, dest: string
       canUpload = false; // ni a 64 kbps cabe en Discord: se reproduce pero no se guarda
     }
     await fsp.mkdir(CACHE_DIR, { recursive: true });
+    const tBeforeConv = Date.now();
     await toMp3(raw.path, dest, kbps);
+    const tConverted = Date.now();
     const size = statSync(dest).size;
     if (size > limit) canUpload = false;
 
@@ -513,6 +502,8 @@ async function downloadAndStore(client: ExtendedClient, id: string, dest: string
     } else if (!canUpload && !fromFallback) {
       log(`No se guarda en el canal (pesa ${Math.round(size / 1024 / 1024)} MB y el límite es ${Math.round(limit / 1024 / 1024)} MB), solo se reproduce`);
     }
+    const sec = (a: number, b: number) => ((b - a) / 1000).toFixed(1);
+    log(`Tiempos: descarga ${sec(t0, tDownload)} s · conversión ${sec(tBeforeConv, tConverted)} s · subida al canal ${sec(tConverted, Date.now())} s · total ${sec(t0, Date.now())} s`);
     void pruneCache();
     return { path: dest, saved, downloaded: true };
   } finally {
@@ -561,4 +552,14 @@ export async function getSongFile(client: ExtendedClient, url: string, req: Song
 /** Deja lista la siguiente canción mientras suena la actual (para que no haya silencio entre canciones). */
 export function prefetchSong(client: ExtendedClient, url: string, req: SongRequest = {}): void {
   getSongFile(client, url, { ...req, onDownloading: undefined }).catch((e) => logErr(`Precarga falló: ${e?.message || e}`));
+}
+
+/** Se llama al arrancar el bot: deja yt-dlp y las cookies listos para que la PRIMERA canción no pague esa espera. */
+export async function warmUpDownloader(): Promise<void> {
+  try {
+    await ensureYtDlp();
+    await loadCookies();
+  } catch (e: any) {
+    logErr(`Calentamiento del descargador falló (se reintentará al pedir una canción): ${e?.message || e}`);
+  }
 }
