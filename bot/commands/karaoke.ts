@@ -1,7 +1,7 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder, GuildMember, MessageFlags } from 'discord.js';
 import { Command, ExtendedClient } from '../types';
 import { config } from '../config';
-import { connectToVoice, searchAndAddTrack, playTrack, getOrCreateQueue } from '../systems/musicPlayer';
+import { connectToVoice, searchAndAddTrack, playTrack, getOrCreateQueue, VoiceConnectError } from '../systems/musicPlayer';
 
 export const karaokeCommand: Command = {
   data: new SlashCommandBuilder()
@@ -90,7 +90,7 @@ export const karaokeCommand: Command = {
         embeds: [
           new EmbedBuilder()
             .setColor(config.colors.error)
-            .setDescription('❌ Hubo un error buscando la versión karaoke.')
+            .setDescription(error instanceof VoiceConnectError ? `❌ ${error.message}` : '❌ Hubo un error buscando la versión karaoke.')
         ]
       });
     }
