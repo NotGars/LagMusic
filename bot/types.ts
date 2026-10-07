@@ -48,6 +48,8 @@ export interface MusicQueue {
   history: Track[];
   isPlaying: boolean;
   isPaused: boolean;
+  /** true mientras se prepara (descarga) la canción que va a sonar; evita que un /play en ese rato arranque otra en paralelo. */
+  loading?: boolean;
   currentCleanup?: (() => void) | null;
 }
 
