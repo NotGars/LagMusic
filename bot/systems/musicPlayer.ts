@@ -10,6 +10,7 @@ import {
   StreamType,
 } from '@discordjs/voice';
 import yts from 'yt-search';
+import { pickBestVideo } from './videoPicker';
 import { VoiceChannel, TextChannel, EmbedBuilder, GuildMember, Message } from 'discord.js';
 import { ExtendedClient, MusicQueue, Track } from '../types';
 import { config } from '../config';
@@ -73,7 +74,9 @@ async function waitForVoiceReady(client: ExtendedClient, connection: VoiceConnec
     const st: any = connection.state;
     const code = st.closeCode;
     console.error(`[Voice] No llegó a Ready (estado: ${st.status}${code ? `, código ${code}` : ''})`);
-    destroyQueue(client, guildId);
+    const q = client.musicQueues.get(guildId);
+    // Si ya había música sonando/cargando, NO se destruye la cola por un bache de conexión al añadir otra canción.
+    if (!(q && (q.isPlaying || q.loading))) destroyQueue(client, guildId);
     if (code === 4017) {
       throw new VoiceConnectError('Discord exige el cifrado DAVE para la voz y al bot le falta soportarlo (`@snazzah/davey`). Avisa al dueño del bot.');
     }
@@ -123,7 +126,14 @@ export async function connectToVoice(client: ExtendedClient, voiceChannel: Voice
     
     queue.player = player;
     connection.subscribe(player);
-    player.on('stateChange', (o, n) => console.log(`[Player] ${o.status} -> ${n.status}`));
+    player.on('stateChange', (o, n) => {
+      let extra = '';
+      if (n.status === AudioPlayerStatus.Idle && o.status === AudioPlayerStatus.Playing) {
+        const played = Math.round(((o as any).resource?.playbackDuration ?? 0) / 1000);
+        extra = ` (sonó ${played} s${queue.currentTrack ? ` de ${queue.currentTrack.duration}` : ''})`;
+      }
+      console.log(`[Player] ${o.status} -> ${n.status}${extra}`);
+    });
     
     player.on(AudioPlayerStatus.Idle, async () => {
       await handleTrackEnd(client, queue);
@@ -225,7 +235,7 @@ export async function searchAndAddTrack(query: string, requestedBy: string): Pro
           return { error: `No se encontró "${spotifyInfo.title}" en YouTube.` };
         }
         
-        const video = searchResult.videos[0];
+        const video = pickBestVideo(spotifyInfo.searchQuery, searchResult.videos);
         return {
           title: `${spotifyInfo.title} - ${spotifyInfo.artist}`,
           url: video.url,
@@ -272,7 +282,8 @@ export async function searchAndAddTrack(query: string, requestedBy: string): Pro
         return null;
       }
       
-      const video = searchResult.videos[0];
+      const video = pickBestVideo(query, searchResult.videos);
+      console.log(`[Busqueda] "${query}" -> "${video.title}" (${video.url})`);
       videoInfo = {
         title: video.title,
         url: video.url,
@@ -390,6 +401,12 @@ export async function searchPlaylist(query: string, source: string, requestedBy:
 
 export async function playTrack(client: ExtendedClient, queue: MusicQueue): Promise<boolean> {
   if (!queue.player || !queue.connection) return false;
+  // Ya se está preparando una canción (descargando): la nueva se queda en la cola y sonará después. Sin esto, un /play
+  // durante la descarga arrancaba OTRA canción en paralelo y se pisaban entre sí.
+  if (queue.loading) {
+    console.log('[MusicPlayer] Ya se está preparando una canción; la nueva queda en la cola');
+    return true;
+  }
   
   if (queue.tracks.length === 0) {
     queue.isPlaying = false;
@@ -418,6 +435,7 @@ export async function playTrack(client: ExtendedClient, queue: MusicQueue): Prom
   }
   
   const track = queue.tracks.shift()!;
+  queue.loading = true;
   queue.currentTrack = track;
   queue.history.push(track);
   
@@ -456,6 +474,7 @@ export async function playTrack(client: ExtendedClient, queue: MusicQueue): Prom
     if (!sigueViva) {
       console.warn('[MusicPlayer] La conexión de voz se cerró mientras se descargaba; no se reproduce.');
       streamResult.cleanup();
+      queue.loading = false;
       return false;
     }
     try {
@@ -468,6 +487,7 @@ export async function playTrack(client: ExtendedClient, queue: MusicQueue): Prom
         embeds: [new EmbedBuilder().setColor(config.colors.error)
           .setDescription('❌ Perdí la conexión con el canal de voz. Usa `/play` otra vez.')],
       }).catch(() => undefined);
+      queue.loading = false;
       destroyQueue(client, conn.joinConfig.guildId);
       return false;
     }
@@ -480,6 +500,7 @@ export async function playTrack(client: ExtendedClient, queue: MusicQueue): Prom
     });
     
     queue.player.play(resource);
+    queue.loading = false;
     queue.isPlaying = true;
     queue.isPaused = false;
     (queue as any)._retryCount = 0;
@@ -488,25 +509,31 @@ export async function playTrack(client: ExtendedClient, queue: MusicQueue): Prom
     const next = queue.tracks[0];
     if (next) prefetchSong(client, next.url, { title: next.title, durationSec: parseDuration(next.duration) });
     
-    const textChannel = await client.channels.fetch(queue.textChannelId) as TextChannel;
-    if (textChannel) {
-      const embed = new EmbedBuilder()
-        .setColor(config.colors.music)
-        .setTitle(`${config.emojis.music} Reproduciendo ahora`)
-        .setDescription(`**[${track.title}](${track.url})**`)
-        .addFields(
-          { name: '⏱️ Duración', value: track.duration, inline: true },
-          { name: '🎧 Pedido por', value: track.requestedBy, inline: true },
-          { name: '📀 Fuente', value: track.source.toUpperCase(), inline: true }
-        )
-        .setThumbnail(track.thumbnail)
-        .setTimestamp();
-      
-      await textChannel.send({ embeds: [embed] });
+    // El aviso "Reproduciendo ahora" va aparte: si falla (sin permisos, miniatura inválida...) NO debe tocar el audio
+    // ni saltar a la siguiente canción (antes un fallo aquí cortaba la canción que ya estaba sonando).
+    try {
+      const textChannel = await client.channels.fetch(queue.textChannelId) as TextChannel;
+      if (textChannel) {
+        const embed = new EmbedBuilder()
+          .setColor(config.colors.music)
+          .setTitle(`${config.emojis.music} Reproduciendo ahora`)
+          .setDescription(`**[${track.title}](${track.url})**`)
+          .addFields(
+            { name: '⏱️ Duración', value: track.duration, inline: true },
+            { name: '🎧 Pedido por', value: track.requestedBy, inline: true },
+            { name: '📀 Fuente', value: track.source.toUpperCase(), inline: true }
+          )
+          .setTimestamp();
+        if (typeof track.thumbnail === 'string' && track.thumbnail.startsWith('http')) embed.setThumbnail(track.thumbnail);
+        await textChannel.send({ embeds: [embed] });
+      }
+    } catch (e: any) {
+      console.error('[MusicPlayer] No pude enviar el aviso de "Reproduciendo ahora" (la canción sigue sonando):', e?.message || e);
     }
     
     return true;
   } catch (error: any) {
+    queue.loading = false;
     console.error('[MusicPlayer] Error reproduciendo canción:', error.message || error);
     const motivo = error instanceof SongError ? `\n${error.userMessage}` : '';
     
