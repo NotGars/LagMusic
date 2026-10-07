@@ -6,6 +6,7 @@ import {
   VoiceConnectionStatus,
   entersState,
   NoSubscriberBehavior,
+  VoiceConnection,
   StreamType,
 } from '@discordjs/voice';
 import yts from 'yt-search';
@@ -58,20 +59,61 @@ export function getOrCreateQueue(client: ExtendedClient, guildId: string): Music
   return queue;
 }
 
+/** Error de conexión de voz con un mensaje listo para mostrarle al usuario. */
+export class VoiceConnectError extends Error {}
+
+const VOICE_READY_TIMEOUT_MS = Number(process.env.VOICE_READY_TIMEOUT_MS) || 20_000;
+
+/** Espera a que la conexión de voz esté lista; si no lo logra, limpia todo y lanza VoiceConnectError con el motivo. */
+async function waitForVoiceReady(client: ExtendedClient, connection: VoiceConnection, guildId: string): Promise<void> {
+  if (connection.state.status === VoiceConnectionStatus.Ready) return;
+  try {
+    await entersState(connection, VoiceConnectionStatus.Ready, VOICE_READY_TIMEOUT_MS);
+  } catch {
+    const st: any = connection.state;
+    const code = st.closeCode;
+    console.error(`[Voice] No llegó a Ready (estado: ${st.status}${code ? `, código ${code}` : ''})`);
+    destroyQueue(client, guildId);
+    if (code === 4017) {
+      throw new VoiceConnectError('Discord exige el cifrado DAVE para la voz y al bot le falta soportarlo (`@snazzah/davey`). Avisa al dueño del bot.');
+    }
+    throw new VoiceConnectError(
+      `No pude conectarme al canal de voz${code ? ` (código ${code})` : ''}. Revisa que tenga permisos de **Conectar** y **Hablar** ahí.`
+    );
+  }
+}
+
 export async function connectToVoice(client: ExtendedClient, voiceChannel: VoiceChannel, textChannelId: string): Promise<MusicQueue> {
-  const queue = getOrCreateQueue(client, voiceChannel.guild.id);
+  const guildId = voiceChannel.guild.id;
+  let queue = getOrCreateQueue(client, guildId);
+
+  // Conexión muerta de antes (nos sacaron, se cayó...): se descarta y se crea una nueva.
+  if (queue.connection && queue.connection.state.status === VoiceConnectionStatus.Destroyed) {
+    destroyQueue(client, guildId);
+    queue = getOrCreateQueue(client, guildId);
+  }
   
   if (!queue.connection) {
     const connection = joinVoiceChannel({
       channelId: voiceChannel.id,
-      guildId: voiceChannel.guild.id,
+      guildId,
       adapterCreator: voiceChannel.guild.voiceAdapterCreator,
-      daveEncryption: false,
+      // Cifrado DAVE activado (por defecto): Discord lo exige en las llamadas de voz. Necesita el paquete @snazzah/davey.
     });
     
     queue.connection = connection;
     queue.voiceChannelId = voiceChannel.id;
     queue.textChannelId = textChannelId;
+
+    connection.on('stateChange', (oldState, newState) => {
+      const ns: any = newState;
+      const extra = newState.status === VoiceConnectionStatus.Disconnected ? ` (razón ${ns.reason}${ns.closeCode ? `, código ${ns.closeCode}` : ''})` : '';
+      console.log(`[Voice] ${oldState.status} -> ${newState.status}${extra}`);
+    });
+    connection.on('error', (error) => console.error('[Voice] Error de conexión:', error.message));
+    connection.on('debug', (msg) => {
+      if (/DAVE/i.test(msg)) console.log('[Voice]', msg);
+    });
     
     const player = createAudioPlayer({
       behaviors: {
@@ -81,6 +123,7 @@ export async function connectToVoice(client: ExtendedClient, voiceChannel: Voice
     
     queue.player = player;
     connection.subscribe(player);
+    player.on('stateChange', (o, n) => console.log(`[Player] ${o.status} -> ${n.status}`));
     
     player.on(AudioPlayerStatus.Idle, async () => {
       await handleTrackEnd(client, queue);
@@ -133,6 +176,9 @@ export async function connectToVoice(client: ExtendedClient, voiceChannel: Voice
       }
     });
   }
+
+  // No seguir hasta que la voz esté realmente lista (antes se decía "Reproduciendo" aunque no hubiera conexión).
+  await waitForVoiceReady(client, queue.connection!, guildId);
   
   return queue;
 }
@@ -403,6 +449,28 @@ export async function playTrack(client: ExtendedClient, queue: MusicQueue): Prom
     });
     const downloadNotice = notice as Message | null;
     if (downloadNotice) downloadNotice.delete().catch(() => undefined);
+
+    // La descarga puede tardar: comprueba que la conexión de voz siga viva antes de reproducir.
+    const conn = queue.connection;
+    const sigueViva = !!conn && conn.state.status !== VoiceConnectionStatus.Destroyed && client.musicQueues.get(conn.joinConfig.guildId) === queue;
+    if (!sigueViva) {
+      console.warn('[MusicPlayer] La conexión de voz se cerró mientras se descargaba; no se reproduce.');
+      streamResult.cleanup();
+      return false;
+    }
+    try {
+      await entersState(conn, VoiceConnectionStatus.Ready, 15_000);
+    } catch {
+      console.error(`[MusicPlayer] La voz no está lista (estado: ${conn.state.status}); no se reproduce.`);
+      streamResult.cleanup();
+      const ch = (await client.channels.fetch(queue.textChannelId).catch(() => null)) as TextChannel | null;
+      await ch?.send({
+        embeds: [new EmbedBuilder().setColor(config.colors.error)
+          .setDescription('❌ Perdí la conexión con el canal de voz. Usa `/play` otra vez.')],
+      }).catch(() => undefined);
+      destroyQueue(client, conn.joinConfig.guildId);
+      return false;
+    }
 
     queue.currentCleanup = streamResult.cleanup;
     
