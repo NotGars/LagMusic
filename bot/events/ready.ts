@@ -2,6 +2,7 @@ import { ActivityType } from 'discord.js';
 import { ExtendedClient } from '../types';
 import { config } from '../config';
 import { loadCatalog } from '../systems/songStore';
+import { generateDependencyReport } from '@discordjs/voice';
 
 export function handleReady(client: ExtendedClient) {
   console.log(`\n🎵 ═══════════════════════════════════════ 🎵`);
@@ -15,6 +16,9 @@ export function handleReady(client: ExtendedClient) {
 
   // Lee el canal de canciones para saber cuáles ya están guardadas.
   void loadCatalog(client);
+
+  // Útil para diagnosticar problemas de voz (cifrado DAVE, ffmpeg, opus...).
+  console.log(generateDependencyReport());
   
   setInterval(() => {
     const activities = [
